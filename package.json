@@ -18,6 +18,39 @@
       {
         "command": "hexdef.createMultipleProjects",
         "title": "HexArch: Create New Project"
+      },
+      {
+        "command": "hexdef.kafka.addRemoveDatagrams",
+        "title": "Add/Remove Datagram"
+      },
+      {
+        "command": "hexdef.kafka.createNewDatagram",
+        "title": "Create New Datagram"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "submenu": "hexdef.kafka",
+          "when": "explorerResourceIsFolder && resourcePath =~ /\\/test\\//",
+          "group": "hexdef@1"
+        }
+      ],
+      "hexdef.kafka": [
+        {
+          "command": "hexdef.kafka.addRemoveDatagrams",
+          "group": "kafka@1"
+        },
+        {
+          "command": "hexdef.kafka.createNewDatagram",
+          "group": "kafka@2"
+        }
+      ]
+    },
+    "submenus": [
+      {
+        "id": "hexdef.kafka",
+        "label": "Kafka"
       }
     ]
   },
