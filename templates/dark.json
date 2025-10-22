@@ -1,0 +1,19 @@
+{
+  "name": "Dark Project",
+  "description": "Dark tema proje yapısı",
+  "structure": [
+    {
+      "type": "directory",
+      "path": "source"
+    },
+    {
+      "type": "directory",
+      "path": "headers"
+    },
+    {
+      "type": "file",
+      "path": "main.cpp",
+      "content": "#include <iostream>\n\nint main() {\n    std::cout << \"Dark Project\" << std::endl;\n    return 0;\n}\n"
+    }
+  ]
+}
