@@ -49,8 +49,8 @@ export async function createMultipleProjects() {
 
         // Her template için alt klasör oluştur
         const templates: Array<{ name: string, template: ProjectTemplate }> = [
-            { name: 'white', template: getTemplates('white') },
-            { name: 'gray', template: getTemplates('gray') },
+            { name: 'white', template: getTemplates('white') },            
+            { name: 'app', template: getTemplates('app') },
             { name: 'dark', template: getTemplates('dark') }
         ];
 
