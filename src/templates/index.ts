@@ -76,7 +76,8 @@ export function getTemplates(projectType: ProjectType): ProjectTemplate {
     if (fs.existsSync(templatePath)) {
         const template = loadTemplateFromFile(templatePath);
         if (template) {
-            return template;
+            // Template içindeki tüm path'leri ve content'leri çevresel değişkenlerle çöz
+            return resolveTemplateVariables(template);
         }
     }
 
@@ -85,6 +86,22 @@ export function getTemplates(projectType: ProjectType): ProjectTemplate {
         name: `${projectType.charAt(0).toUpperCase() + projectType.slice(1)} Project`,
         description: `${projectType} tema proje yapısı`,
         structure: []
+    };
+}
+
+/**
+ * Template içindeki tüm çevresel değişkenleri çöz
+ */
+function resolveTemplateVariables(template: ProjectTemplate): ProjectTemplate {
+    return {
+        ...template,
+        name: resolveVariables(template.name),
+        description: resolveVariables(template.description),
+        structure: template.structure.map(item => ({
+            ...item,
+            path: resolveVariables(item.path),
+            content: item.content ? resolveVariables(item.content) : undefined
+        }))
     };
 }
 

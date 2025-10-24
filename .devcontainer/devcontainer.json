@@ -1,0 +1,19 @@
+{
+    "name": "HexDef Development",
+    "image": "mcr.microsoft.com/devcontainers/universal:2",
+    "remoteEnv": {
+        "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
+        "DB": "TEST_DB"
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.env.linux": {
+                    "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
+                    "DB": "TEST_DB"
+                }
+            }
+        }
+    },
+    "postCreateCommand": "source /workspaces/hexdef/initial.sh"
+}
