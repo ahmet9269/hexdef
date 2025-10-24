@@ -14,7 +14,7 @@ export interface ProjectTemplate {
     structure: ProjectStructureItem[];
 }
 
-export type ProjectType = 'white' | 'gray' | 'dark';
+export type ProjectType = 'white' | 'dark' | 'app';
 
 /**
  * Çevresel değişkenleri ve değişken placeholder'larını çöz
@@ -69,24 +69,21 @@ export function loadTemplateFromFile(templatePath: string): ProjectTemplate | nu
 /**
  * Yerleşik template'i yükle veya özel JSON dosyasından oku
  */
-export function getTemplates(projectType: ProjectType): ProjectTemplate {
-    // Extension'ın templates klasöründeki JSON dosyasını oku
-    const templatePath = path.join(__dirname, '..', '..', 'templates', `${projectType}.json`);
+export function getTemplates(type: ProjectType): ProjectTemplate {
+    const schemasDir = process.env.SCHEMAS_DIR;
     
-    if (fs.existsSync(templatePath)) {
-        const template = loadTemplateFromFile(templatePath);
-        if (template) {
-            // Template içindeki tüm path'leri ve content'leri çevresel değişkenlerle çöz
-            return resolveTemplateVariables(template);
-        }
+    if (!schemasDir) {
+        throw new Error('SCHEMAS_DIR çevresel değişkeni tanımlanmamış! Lütfen "source initial.sh" komutunu çalıştırın.');
     }
-
-    // Fallback: Boş template döndür
-    return {
-        name: `${projectType.charAt(0).toUpperCase() + projectType.slice(1)} Project`,
-        description: `${projectType} tema proje yapısı`,
-        structure: []
-    };
+    
+    const templatePath = path.join(schemasDir, `${type}.json`);
+    
+    if (!fs.existsSync(templatePath)) {
+        throw new Error(`Template file not found: ${templatePath}`);
+    }
+    
+    const templateContent = fs.readFileSync(templatePath, 'utf-8');
+    return JSON.parse(templateContent) as ProjectTemplate;
 }
 
 /**

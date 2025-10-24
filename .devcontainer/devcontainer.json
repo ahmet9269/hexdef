@@ -3,6 +3,7 @@
     "image": "mcr.microsoft.com/devcontainers/universal:2",
     "remoteEnv": {
         "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
+        "SCHEMAS_DIR": "/workspaces/hexdef/schemas",
         "DB": "TEST_DB"
     },
     "customizations": {
