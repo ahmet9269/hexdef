@@ -1,0 +1,14 @@
+{
+    "terminal.integrated.env.linux": {
+        "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
+        "DB": "TEST_DB"
+    },
+    "terminal.integrated.env.osx": {
+        "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
+        "DB": "TEST_DB"
+    },
+    "terminal.integrated.env.windows": {
+        "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
+        "DB": "TEST_DB"
+    }
+}

@@ -3,61 +3,89 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 export async function addRemoveDatagrams(uri: vscode.Uri) {
-    const folderPath = uri.fsPath;
-    const projectName = path.basename(folderPath);
-    const projectXmlPath = path.join(folderPath, `${projectName}.xml`);
-    
-    // Create and show webview panel
-    const panel = vscode.window.createWebviewPanel(
-        'kafkaDatagrams',
-        `Kafka Datagrams - ${projectName}`,
-        vscode.ViewColumn.One,
-        {
-            enableScripts: true,
-            retainContextWhenHidden: true
+    try {
+        console.log('addRemoveDatagrams called with uri:', uri?.fsPath);
+        
+        if (!uri || !uri.fsPath) {
+            vscode.window.showErrorMessage('No folder selected');
+            return;
         }
-    );
-
-    // Get available datagrams (this is mock data - you can replace with actual logic)
-    const selectedDatagrams = getSelectedDatagrams(projectXmlPath);
-    const availableDatagrams = getAvailableDatagrams(folderPath, projectXmlPath);
-
-    panel.webview.html = getWebviewContent(availableDatagrams, selectedDatagrams);
-
-    // Handle messages from the webview
-    panel.webview.onDidReceiveMessage(
-        async message => {
-            switch (message.command) {
-                case 'moveToSelected':
-                    // Don't save yet, just notify
-                    break;
-                case 'moveToAvailable':
-                    // Don't save yet, just notify
-                    break;
-                case 'updateCheckbox':
-                    // Don't save yet, just track changes
-                    break;
-                case 'saveAll':
-                    // Save all selected datagrams with their checkbox states
-                    await saveAllDatagrams(projectXmlPath, message.datagrams);
-                    vscode.window.showInformationMessage(`Saved datagrams to ${projectName}.xml`);
-                    panel.dispose();
-                    break;
+        
+        const folderPath = uri.fsPath;
+        const projectName = path.basename(folderPath);
+        const projectXmlPath = path.join(folderPath, `${projectName}.xml`);
+        
+        console.log('Project path:', projectXmlPath);
+        
+        // Get available datagrams (this is mock data - you can replace with actual logic)
+        const selectedDatagrams = getSelectedDatagrams(projectXmlPath);
+        const availableDatagrams = getAvailableDatagrams(folderPath, projectXmlPath);
+        
+        console.log('Selected datagrams:', selectedDatagrams.length);
+        console.log('Available datagrams:', availableDatagrams.length);
+        
+        // Create and show webview panel
+        const panel = vscode.window.createWebviewPanel(
+            'kafkaDatagrams',
+            `Kafka Datagrams - ${projectName}`,
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true
             }
-        },
-        undefined,
-        []
-    );
+        );
+        
+        console.log('Webview panel created');
+
+        panel.webview.html = getWebviewContent(availableDatagrams, selectedDatagrams);
+        console.log('Webview HTML set');
+
+        // Handle messages from the webview
+        panel.webview.onDidReceiveMessage(
+            async message => {
+                switch (message.command) {
+                    case 'moveToSelected':
+                        // Don't save yet, just notify
+                        break;
+                    case 'moveToAvailable':
+                        // Don't save yet, just notify
+                        break;
+                    case 'updateCheckbox':
+                        // Don't save yet, just track changes
+                        break;
+                    case 'saveAll':
+                        // Save all selected datagrams with their checkbox states
+                        await saveAllDatagrams(projectXmlPath, message.datagrams);
+                        vscode.window.showInformationMessage(`Saved datagrams to ${projectName}.xml`);
+                        panel.dispose();
+                        break;
+                }
+            },
+            undefined,
+            []
+        );
+    } catch (error) {
+        console.error('Error in addRemoveDatagrams:', error);
+        vscode.window.showErrorMessage(`Failed to open datagram panel: ${error}`);
+    }
 }
 
 function getAvailableDatagrams(folderPath: string, projectXmlPath: string): string[] {
-    const datagramDir = path.join('/workspaces/hexdef/test', 'datagram_dir');
+    // Check environment variable (mandatory)
+    const datagramDir = process.env.DATAGRAM_DIR_PATH;
+    
+    if (!datagramDir) {
+        vscode.window.showErrorMessage('DATAGRAM_DIR_PATH environment variable is not defined. Please set it to the path of your datagram directory.');
+        return [];
+    }
     
     try {
         if (!fs.existsSync(datagramDir)) {
-            vscode.window.showWarningMessage(`Datagram directory not found: ${datagramDir}`);
+            vscode.window.showErrorMessage(`DATAGRAM_DIR_PATH is set to "${datagramDir}" but the directory does not exist.`);
             return [];
         }
+        
+        console.log('Using datagram directory:', datagramDir);
         
         // Read all files in datagram_dir
         const files = fs.readdirSync(datagramDir);

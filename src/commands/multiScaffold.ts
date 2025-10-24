@@ -98,16 +98,36 @@ async function createProjectStructure(projectPath: string, template: ProjectTemp
 
     // Template'deki tüm dosya ve klasörleri oluştur
     for (const item of template.structure) {
-        const itemPath = path.join(projectPath, item.path);
+        // Environment variable'ları değiştir (${VAR_NAME} formatında)
+        let itemPath = item.path;
+        itemPath = replaceEnvironmentVariables(itemPath);
+        
+        const fullPath = path.join(projectPath, itemPath);
 
         if (item.type === 'directory') {
-            fs.mkdirSync(itemPath, { recursive: true });
+            fs.mkdirSync(fullPath, { recursive: true });
         } else if (item.type === 'file') {
-            const dir = path.dirname(itemPath);
+            const dir = path.dirname(fullPath);
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
             }
-            fs.writeFileSync(itemPath, item.content || '');
+            // Content içindeki environment variable'ları da değiştir
+            let content = item.content || '';
+            content = replaceEnvironmentVariables(content);
+            fs.writeFileSync(fullPath, content);
         }
     }
+}
+
+function replaceEnvironmentVariables(text: string): string {
+    return text.replace(/\$\{([^}]+)\}/g, (match, varName) => {
+        const envValue = process.env[varName];
+        if (envValue === undefined) {
+            if (varName === 'DB') {
+                return 'TEST_DB';
+            }
+            return match;
+        }
+        return envValue;
+    });
 }

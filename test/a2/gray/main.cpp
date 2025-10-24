@@ -1,6 +1,6 @@
 #include <iostream>
 
 int main() {
-    std::cout << "Dark Project" << std::endl;
+    std::cout << "Gray Project" << std::endl;
     return 0;
 }

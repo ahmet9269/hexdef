@@ -10,7 +10,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:hexdef.createMultipleProjects"
+    "*"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -32,7 +32,7 @@
       "explorer/context": [
         {
           "submenu": "hexdef.kafka",
-          "when": "explorerResourceIsFolder && resourcePath =~ /\\/test\\//",
+          "when": "explorerResourceIsFolder",
           "group": "hexdef@1"
         }
       ],
