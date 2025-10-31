@@ -4,6 +4,8 @@
     "remoteEnv": {
         "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
         "SCHEMAS_DIR": "/workspaces/hexdef/schemas",
+        "NEW_DATAGRAM_FILE_PATH": "${SCHEMAS_DIR}/datagram.xml",
+        "NEW_DATAGRAM_TARGET_NAME": "new_datagram",
         "DB": "TEST_DB"
     },
     "customizations": {
