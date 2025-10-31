@@ -600,11 +600,57 @@ export async function createNewDatagram(uri: vscode.Uri) {
         return; // User cancelled
     }
 
-    vscode.window.showInformationMessage(`Creating datagram "${datagramName}" in: ${path.basename(folderPath)}`);
-    
-    // TODO: Implement datagram creation logic
-    // This could:
-    // 1. Create necessary files for the datagram
-    // 2. Generate boilerplate code
-    // 3. Update configuration files if needed
+    try {
+        // Check for SCHEMAS_DIR environment variable
+        const schemasDir = process.env.SCHEMAS_DIR;
+        
+        if (!schemasDir) {
+            vscode.window.showErrorMessage('SCHEMAS_DIR environment variable is not defined. Please set it to the path of your schemas directory.');
+            return;
+        }
+        
+        const templatePath = path.join(schemasDir, 'datagram.xml');
+        
+        if (!fs.existsSync(templatePath)) {
+            vscode.window.showErrorMessage(`Template file not found at: ${templatePath}`);
+            return;
+        }
+        
+        // Find new_datagram directory (should exist under the clicked folder)
+        const newDatagramDir = path.join(folderPath, 'new_datagram');
+        
+        if (!fs.existsSync(newDatagramDir)) {
+            vscode.window.showErrorMessage(`new_datagram directory not found at: ${newDatagramDir}`);
+            return;
+        }
+        
+        // Read template content
+        const templateContent = fs.readFileSync(templatePath, 'utf-8');
+        
+        // Create new datagram file with the given name in the existing new_datagram folder
+        const newDatagramPath = path.join(newDatagramDir, `${datagramName}.xml`);
+        
+        if (fs.existsSync(newDatagramPath)) {
+            const overwrite = await vscode.window.showWarningMessage(
+                `Datagram "${datagramName}.xml" already exists. Do you want to overwrite it?`,
+                'Yes', 'No'
+            );
+            
+            if (overwrite !== 'Yes') {
+                return;
+            }
+        }
+        
+        // Write the template content to the new file
+        fs.writeFileSync(newDatagramPath, templateContent, 'utf-8');
+        
+        vscode.window.showInformationMessage(`Datagram "${datagramName}.xml" created successfully in ${newDatagramDir}`);
+        
+        // Open the newly created file
+        const document = await vscode.workspace.openTextDocument(newDatagramPath);
+        await vscode.window.showTextDocument(document);
+        
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error creating datagram: ${error}`);
+    }
 }
