@@ -12,7 +12,7 @@
     },
     {
       "type": "directory",
-      "path": "adapters/incoming/deneme"
+      "path": "adapters/${PSEUDO_APP_NAME}/incoming/deneme"
     },
     {
       "type": "directory",

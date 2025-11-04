@@ -16,7 +16,7 @@
   "contributes": {
     "commands": [
       {
-        "command": "hexdef.createMultipleProjects",
+        "command": "hexdef.createNewProject",
         "title": "HexArch: Create New Project"
       },
       {
@@ -31,9 +31,14 @@
     "menus": {
       "explorer/context": [
         {
-          "submenu": "hexdef.kafka",
+          "command": "hexdef.createNewProject",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@1"
+        },
+        {
+          "submenu": "hexdef.kafka",
+          "when": "explorerResourceIsFolder",
+          "group": "hexdef@2"
         }
       ],
       "hexdef.kafka": [
