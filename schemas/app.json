@@ -1,61 +1,296 @@
 {
-  "name": "Dark Project",
-  "description": "Dark tema proje yapısı",
- "structure": [
-    {
+  "name": "Complete Hexagonal Architecture Project",
+  "description": "Complete project structure with src, lib, bin, doc, deploy, etc directories",
+  "structure": [
+     {
       "type": "directory",
-      "path": "adapters"
+      "path": "lib"
     },
     {
       "type": "directory",
-      "path": "adapters/incoming"
+      "path": "bin"
     },
     {
       "type": "directory",
-      "path": "adapters/incoming/${DB}"
+      "path": "doc"
+    },
+
+    {
+      "type": "file",
+      "path": "deploy/${DB}.xml",
+      "content": "${SCHEMAS_DIR}/pack.xml"
     },
     {
       "type": "directory",
-      "path": "adapters/incoming/deneme"
-    },
-    {
-      "type": "directory",
-      "path": "adapters/outgoing"
-    },
-    {
-      "type": "directory",
-      "path": "adapters/common"
-    },
-    {
-      "type": "directory",
-      "path": "adapters/common/utils"
-    },
-    {
-      "type": "directory",
-      "path": "domain"
-    },
-    {
-      "type": "directory",
-      "path": "domain/logic"
-    },
-    {
-      "type": "directory",
-      "path": "domain/model"
+      "path": "etc"
     },
     {
       "type": "file",
-      "path": "main.cpp",
-      "content": "#include <iostream>\n\nint main() {\n    std::cout << \"White Project - Hexagonal Architecture\" << std::endl;\n    return 0;\n}\n"
+      "path": "Makefile",
+      "content": "# Makefile for ${PROJECT_NAME}\n# Pseudo App Name: ${PSEUDO_APP_NAME}\n\nPROJECT_NAME = ${PROJECT_NAME}\nPSEUDO_APP_NAME = ${PSEUDO_APP_NAME}\n\n# Directories\nSRC_DIR = src\nBUILD_DIR = bin\nLIB_DIR = lib\nDOC_DIR = doc\nDEPLOY_DIR = deploy\n\n# Compiler settings\nCXX = g++\nCXXFLAGS = -std=c++17 -Wall -Wextra -I${SRC_DIR}\n\n# Default target\nall: build\n\n# Build all components\nbuild:\n\t@echo \"Building ${PROJECT_NAME}...\"\n\t@cd ${SRC_DIR}/app && $(MAKE)\n\t@cd ${SRC_DIR}/dark && $(MAKE)\n\t@cd ${SRC_DIR}/white && $(MAKE)\n\n# Clean build artifacts\nclean:\n\t@echo \"Cleaning build artifacts...\"\n\t@rm -rf ${BUILD_DIR}/*\n\t@cd ${SRC_DIR}/app && $(MAKE) clean\n\t@cd ${SRC_DIR}/dark && $(MAKE) clean\n\t@cd ${SRC_DIR}/white && $(MAKE) clean\n\n# Install to deploy directory\ninstall:\n\t@echo \"Installing to ${DEPLOY_DIR}...\"\n\t@mkdir -p ${DEPLOY_DIR}\n\t@cp -r ${BUILD_DIR}/* ${DEPLOY_DIR}/\n\n# Run tests\ntest:\n\t@echo \"Running tests...\"\n\t@cd ${SRC_DIR}/app && $(MAKE) test\n\t@cd ${SRC_DIR}/dark && $(MAKE) test\n\t@cd ${SRC_DIR}/white && $(MAKE) test\n\n.PHONY: all build clean install test\n"
+    },
+    {
+      "type": "directory",
+      "path": "src"
+    },
+
+
+
+
+
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/bin"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/lib/include"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/doc"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/incoming"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/incoming/${DB}"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/outgoing"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/common"
+    },
+        {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/common/support"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/common/${NEW_DATAGRAM_TARGET_NAME}"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/domain/logic"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/domain/model"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/domain/ports/incoming"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/domain/ports/outgoing"
+    },
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/utils"
     },
     {
       "type": "file",
-      "path": "CMakeLists.txt",
-      "content": "cmake_minimum_required(VERSION 3.10)\nproject(WhiteProject)\n\nset(CMAKE_CXX_STANDARD 17)\n\nadd_executable(${PROJECT_NAME} main.cpp)\n"
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/app_name.cc",
+      "content": "#AppName."
     },
+    {
+      "type": "file",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/app_name.h",
+      "content": "#AppName header."
+    },
+    {
+      "type": "file",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/Makefile",
+      "content": "#Makefile ."
+    },
+     {
+      "type": "file",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/makefile_white.mk",
+      "content": "#Makefile white."
+    },
+
+
+
+
+    {
+      "type": "directory",
+      "path": "src/dark_src/bin"
+    },
+     {
+      "type": "directory",
+      "path": "src/dark_src/doc"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/lib/include"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/adapters/incoming"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/adapters/incoming/${DB}"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/adapters/outgoing"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/adapters/common"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/adapters/common/${NEW_DATAGRAM_TARGET_NAME}"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/domain/logic"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/domain/model"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/domain/ports/incoming"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/domain/ports/outgoing"
+    },
+    {
+      "type": "directory",
+      "path": "src/dark_src/src/${PROJECT_NAME}/utils"
+    },
+    {
+      "type": "file",
+      "path": "src/dark_src/src/${PROJECT_NAME}/${PROJECT_NAME}.cc",
+      "content": "#include <iostream>\n\nint main() {\n    std::cout << \"${PROJECT_NAME} - Dark Component\" << std::endl;\n    return 0;\n}\n"
+    },
+
+    {
+      "type": "file",
+      "path": "src/dark_src/src/${PROJECT_NAME}/Makefile",
+      "content": "#Makefile ."
+    },
+    {
+      "type": "file",
+      "path": "src/dark_src/src/${PROJECT_NAME}/makefile_dark.mk",
+      "content": "#Makefile Dark ."
+    },
+
+
+
+
+
+    {
+      "type": "directory",
+      "path": "src/white_src"
+    },    
+    {
+      "type": "directory",
+      "path": "src/white_src/lib/include"
+    },
+    {
+      "type": "directory",
+      "path": "src/white_src/bin"
+    },
+    {
+      "type": "directory",
+      "path": "src/white_src/doc"
+    },
+    {
+      "type": "directory",
+      "path": "src/white_src/test"
+    },
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}"
+    },
+     {
+      "type": "directory",
+      "path": "src/white_src/utils"
+    },
+    {
+      "type": "file",
+      "path": "src/white_src/Makefile",
+      "content": "${SCHEMAS_DIR}/Makefile_w"
+    },
+    {
+      "type": "file",
+      "path": "src/white_src/makefile_white.mk",
+      "content": "Makefile white."
+    },
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/adapters/incoming"
+    },
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/adapters/incoming/${DB}"
+    },
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/adapters/outgoing"
+    },
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/adapters/common"
+    },
+        {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/adapters/common/support"
+    },
+
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain"
+    },
+
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain/logic"
+    },
+
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain/model"
+    },
+    
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain/ports"
+    },
+
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain/ports/incoming"
+    },
+
+    {
+      "type": "directory",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain/ports/outgoing"
+    },
+
+   
     {
       "type": "file",
       "path": "README.md",
-      "content": "# White Project\n\nHexagonal Architecture template project.\n\n## Structure\n\n- **adapters/**: External interface adapters\n  - **incoming/**: Input adapters (REST, CLI, etc.)\n  - **outgoing/**: Output adapters (Database, APIs, etc.)\n  - **common/**: Shared utilities\n- **domain/**: Business logic layer\n  - **logic/**: Business rules\n  - **model/**: Domain models\n  - **ports/**: Interface definitions\n\n## Build\n\n```bash\nmkdir build && cd build\ncmake ..\nmake\n```\n"
+      "content": "# ${PROJECT_NAME}\n\n**Pseudo App Name:** ${PSEUDO_APP_NAME}\n**Database:** ${DB}\n\nHexagonal Architecture project with multiple components.\n\n## Project Structure\n\n```\n${PROJECT_NAME}/\n├── src/           # Source code\n│   ├── app/       # Application layer\n│   ├── dark/      # Dark theme component\n│   └── white/     # White theme component\n├── lib/           # Libraries\n├── bin/           # Compiled binaries\n├── doc/           # Documentation\n├── deploy/        # Deployment files\n├── etc/           # Configuration files\n└── Makefile       # Build configuration\n```\n\n## Build\n\n```bash\nmake build\n```\n\n## Clean\n\n```bash\nmake clean\n```\n\n## Install\n\n```bash\nmake install\n```\n\n## Test\n\n```bash\nmake test\n```\n"
+    },
+
+    {
+      "type": "file",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/main.cpp",
+      "content": "#include <iostream>\n\nint main() {\n    std::cout << \"${PROJECT_NAME} - White Component (${PSEUDO_APP_NAME})\" << std::endl;\n    return 0;\n}\n"
     }
   ]
 }

@@ -86,51 +86,40 @@ export async function createMultipleProjects(uri?: vscode.Uri) {
             PROJECT_NAME: projectName,
             PSEUDO_APP_NAME: pseudoAppName,
             DB: process.env.DB || 'TEST_DB',
-            NEW_DATAGRAM_TARGET_NAME: process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram'
+            NEW_DATAGRAM_TARGET_NAME: process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram',
+            SCHEMAS_DIR: process.env.SCHEMAS_DIR || '/workspaces/hexdef/schemas'
         };
 
-        // Her template için alt klasör oluştur
-        const templates: Array<{ name: string, template: ProjectTemplate }> = [
-            { name: 'white', template: getTemplates('white') },            
-            { name: 'app', template: getTemplates('app') },
-            { name: 'dark', template: getTemplates('dark') }
+        console.log('Variables:', variables);
+
+        // Sadece app template'ini kullan
+        const appTemplate = getTemplates('app');
+        
+        await createProjectStructure(baseProjectPath, appTemplate, variables);
+
+        vscode.window.showInformationMessage(
+            `Project "${projectName}" (${pseudoAppName}) created successfully!`
+        );
+
+        // İlk dosyayı aç (varsa main.cpp veya başka bir dosya)
+        const possibleFiles = [
+            'main.cpp',
+            'src/main.cpp',
+            'README.md'
         ];
-
-        let successCount = 0;
-        const errors: string[] = [];
-
-        for (const { name, template } of templates) {
-            try {
-                const templatePath = path.join(baseProjectPath, name);
-                await createProjectStructure(templatePath, template, variables);
-                successCount++;
-            } catch (error) {
-                errors.push(`${name}: ${error}`);
+        
+        for (const file of possibleFiles) {
+            const filePath = path.join(baseProjectPath, file);
+            if (fs.existsSync(filePath)) {
+                const document = await vscode.workspace.openTextDocument(filePath);
+                await vscode.window.showTextDocument(document);
+                break;
             }
         }
 
-        if (successCount === templates.length) {
-            vscode.window.showInformationMessage(
-                `Project "${projectName}" (${pseudoAppName}) created successfully! (${successCount} templates)`
-            );
-        } else {
-            vscode.window.showWarningMessage(
-                `${successCount}/${templates.length} templates created. Errors: ${errors.join(', ')}`
-            );
-        }
-
-        // Kullanıcıya yeni projeyi açmak isteyip istemediğini sor
-        const openProject = await vscode.window.showInformationMessage(
-            'Do you want to open the new project?',
-            'Yes',
-            'No'
-        );
-
-        if (openProject === 'Yes') {
-            await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(baseProjectPath));
-        }
     } catch (error) {
         vscode.window.showErrorMessage(`Error creating project: ${error}`);
+        console.error('Project creation error:', error);
     }
 }
 
@@ -156,9 +145,29 @@ async function createProjectStructure(
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
             }
-            // Content'i de değişkenlerle değiştir
+            
+            // Content'i al
             let content = item.content || '';
-            content = replaceVariables(content, variables);
+            
+            // Önce değişkenleri değiştir (content bir dosya yolu olabilir)
+            const processedContent = replaceVariables(content, variables);
+            
+            // Eğer işlenmiş content bir dosya yolu ise, dosyayı oku
+            if (processedContent.startsWith('/') || processedContent.includes('schemas/')) {
+                if (fs.existsSync(processedContent)) {
+                    console.log(`Reading template file: ${processedContent}`);
+                    content = fs.readFileSync(processedContent, 'utf-8');
+                    // Okunan dosya içeriğindeki değişkenleri de değiştir
+                    content = replaceVariables(content, variables);
+                } else {
+                    console.warn(`Template file not found: ${processedContent}, using as-is`);
+                    content = processedContent;
+                }
+            } else {
+                // Normal içerik, değişkenleri değiştir
+                content = processedContent;
+            }
+            
             fs.writeFileSync(fullPath, content);
         }
     }
