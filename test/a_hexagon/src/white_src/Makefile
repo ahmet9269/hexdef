@@ -1,8 +1,8 @@
 # Makefile for white component
-PROJECT_NAME=a_hex_white
+PROJECT_NAME=a_pseudo_white
 
 # Directories
-SRC_DIR = src/a_hex
+SRC_DIR = src/a_pseudo
 BUILD_DIR = bin
 OBJ_DIR = obj
 LIB_DIR = lib

@@ -1,8 +1,8 @@
 # Makefile for a_hexagon
-# Pseudo App Name: a_hex
+# Pseudo App Name: a_pseudo
 
 PROJECT_NAME = a_hexagon
-PSEUDO_APP_NAME = a_hex
+PSEUDO_APP_NAME = a_pseudo
 
 # Directories
 SRC_DIR = src

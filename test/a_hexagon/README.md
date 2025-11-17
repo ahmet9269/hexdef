@@ -1,6 +1,6 @@
 # a_hexagon
 
-**Pseudo App Name:** a_hex
+**Pseudo App Name:** a_pseudo
 **Database:** TEST_DB
 
 Hexagonal Architecture project with multiple components.

@@ -14,7 +14,10 @@
       "type": "directory",
       "path": "doc"
     },
-
+ {
+      "type": "directory",
+      "path": "test"
+    },
     {
       "type": "file",
       "path": "deploy/${DB}.xml",
@@ -122,7 +125,11 @@
       "type": "directory",
       "path": "src/dark_src/bin"
     },
-     {
+    {
+      "type": "directory",
+      "path": "src/dark_src/test"
+    },
+    {
       "type": "directory",
       "path": "src/dark_src/doc"
     },
@@ -190,11 +197,7 @@
 
 
 
-
-    {
-      "type": "directory",
-      "path": "src/white_src"
-    },    
+   
     {
       "type": "directory",
       "path": "src/white_src/lib/include"
@@ -213,11 +216,7 @@
     },
     {
       "type": "directory",
-      "path": "src/white_src/src/${PSEUDO_APP_NAME}"
-    },
-     {
-      "type": "directory",
-      "path": "src/white_src/utils"
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/utils"
     },
     {
       "type": "file",
@@ -228,6 +227,16 @@
       "type": "file",
       "path": "src/white_src/makefile_white.mk",
       "content": "Makefile white."
+    },
+    {
+      "type": "file",
+      "path": "README.md",
+      "content": "# ${PROJECT_NAME}\n\n**Pseudo App Name:** ${PSEUDO_APP_NAME}\n**Database:** ${DB}\n\nHexagonal Architecture project with multiple components.\n\n## Project Structure\n\n```\n${PROJECT_NAME}/\n├── src/           # Source code\n│   ├── app/       # Application layer\n│   ├── dark/      # Dark theme component\n│   └── white/     # White theme component\n├── lib/           # Libraries\n├── bin/           # Compiled binaries\n├── doc/           # Documentation\n├── deploy/        # Deployment files\n├── etc/           # Configuration files\n└── Makefile       # Build configuration\n```\n\n## Build\n\n```bash\nmake build\n```\n\n## Clean\n\n```bash\nmake clean\n```\n\n## Install\n\n```bash\nmake install\n```\n\n## Test\n\n```bash\nmake test\n```\n"
+    },
+    {
+      "type": "file",
+      "path": "src/white_src/src/${PSEUDO_APP_NAME}/main.cpp",
+      "content": "#include <iostream>\n\nint main() {\n    std::cout << \"${PROJECT_NAME} - White Component (${PSEUDO_APP_NAME})\" << std::endl;\n    return 0;\n}\n"
     },
     {
       "type": "directory",
@@ -241,20 +250,11 @@
       "type": "directory",
       "path": "src/white_src/src/${PSEUDO_APP_NAME}/adapters/outgoing"
     },
+
     {
-      "type": "directory",
-      "path": "src/white_src/src/${PSEUDO_APP_NAME}/adapters/common"
-    },
-        {
       "type": "directory",
       "path": "src/white_src/src/${PSEUDO_APP_NAME}/adapters/common/support"
     },
-
-    {
-      "type": "directory",
-      "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain"
-    },
-
     {
       "type": "directory",
       "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain/logic"
@@ -263,11 +263,6 @@
     {
       "type": "directory",
       "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain/model"
-    },
-    
-    {
-      "type": "directory",
-      "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain/ports"
     },
 
     {
@@ -278,19 +273,9 @@
     {
       "type": "directory",
       "path": "src/white_src/src/${PSEUDO_APP_NAME}/domain/ports/outgoing"
-    },
+    }
 
    
-    {
-      "type": "file",
-      "path": "README.md",
-      "content": "# ${PROJECT_NAME}\n\n**Pseudo App Name:** ${PSEUDO_APP_NAME}\n**Database:** ${DB}\n\nHexagonal Architecture project with multiple components.\n\n## Project Structure\n\n```\n${PROJECT_NAME}/\n├── src/           # Source code\n│   ├── app/       # Application layer\n│   ├── dark/      # Dark theme component\n│   └── white/     # White theme component\n├── lib/           # Libraries\n├── bin/           # Compiled binaries\n├── doc/           # Documentation\n├── deploy/        # Deployment files\n├── etc/           # Configuration files\n└── Makefile       # Build configuration\n```\n\n## Build\n\n```bash\nmake build\n```\n\n## Clean\n\n```bash\nmake clean\n```\n\n## Install\n\n```bash\nmake install\n```\n\n## Test\n\n```bash\nmake test\n```\n"
-    },
-
-    {
-      "type": "file",
-      "path": "src/white_src/src/${PSEUDO_APP_NAME}/main.cpp",
-      "content": "#include <iostream>\n\nint main() {\n    std::cout << \"${PROJECT_NAME} - White Component (${PSEUDO_APP_NAME})\" << std::endl;\n    return 0;\n}\n"
-    }
+   
   ]
 }
