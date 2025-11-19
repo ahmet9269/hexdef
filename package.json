@@ -20,6 +20,14 @@
         "title": "HexArch: Create New Project"
       },
       {
+        "command": "hexdef.runMake",
+        "title": "HexArch: Run Make"
+      },
+      {
+        "command": "hexdef.regenerateCode",
+        "title": "HexArch: Regenerate Code"
+      },
+      {
         "command": "hexdef.kafka.addRemoveDatagrams",
         "title": "Add/Remove Datagram"
       },
@@ -36,9 +44,19 @@
           "group": "hexdef@1"
         },
         {
-          "submenu": "hexdef.kafka",
+          "command": "hexdef.runMake",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@2"
+        },
+        {
+          "command": "hexdef.regenerateCode",
+          "when": "explorerResourceIsFolder",
+          "group": "hexdef@3"
+        },
+        {
+          "submenu": "hexdef.kafka",
+          "when": "explorerResourceIsFolder",
+          "group": "hexdef@4"
         }
       ],
       "hexdef.kafka": [

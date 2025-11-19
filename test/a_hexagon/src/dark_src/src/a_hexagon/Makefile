@@ -1,1 +1,2 @@
 #Makefile .
+regenerate_code:

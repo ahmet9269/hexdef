@@ -1,7 +1,11 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { ProjectTemplate, getTemplates } from '../templates';
+
+const execAsync = promisify(exec);
 
 export async function createMultipleProjects(uri?: vscode.Uri) {
     // Kullanıcıdan proje adını al
@@ -101,6 +105,14 @@ export async function createMultipleProjects(uri?: vscode.Uri) {
             `Project "${projectName}" (${pseudoAppName}) created successfully!`
         );
 
+        // Makefile'ı otomatik olarak arka planda çalıştır
+        const makefilePath = path.join(baseProjectPath, 'Makefile');
+        
+        if (fs.existsSync(makefilePath)) {
+            // Arka planda make çalıştır
+            runMakeInBackground(baseProjectPath, projectName);
+        }
+
         // İlk dosyayı aç (varsa main.cpp veya başka bir dosya)
         const possibleFiles = [
             'main.cpp',
@@ -120,6 +132,52 @@ export async function createMultipleProjects(uri?: vscode.Uri) {
     } catch (error) {
         vscode.window.showErrorMessage(`Error creating project: ${error}`);
         console.error('Project creation error:', error);
+    }
+}
+
+async function runMakeInBackground(projectPath: string, projectName: string) {
+    try {
+        console.log(`Running make in background for ${projectName}...`);
+        
+        // Arka planda make çalıştır
+        const { stdout, stderr } = await execAsync('make', {
+            cwd: projectPath,
+            env: process.env
+        });
+
+        // Başarılı build
+        if (stdout) {
+            console.log('Make output:', stdout);
+        }
+        
+        if (stderr && stderr.trim().length > 0) {
+            console.warn('Make warnings:', stderr);
+        }
+
+        vscode.window.showInformationMessage(
+            `${projectName} built successfully! ✓`
+        );
+
+    } catch (error: any) {
+        console.error('Make failed:', error);
+        
+        // Hata durumunda kullanıcıya bildir
+        const message = error.stderr || error.message || 'Unknown error';
+        vscode.window.showWarningMessage(
+            `Build failed for ${projectName}. You can build manually with 'make'.`,
+            'Show Error'
+        ).then(selection => {
+            if (selection === 'Show Error') {
+                const channel = vscode.window.createOutputChannel('HexDef Build');
+                channel.appendLine(`Build failed for ${projectName}`);
+                channel.appendLine(`Error: ${message}`);
+                if (error.stdout) {
+                    channel.appendLine('\nOutput:');
+                    channel.appendLine(error.stdout);
+                }
+                channel.show();
+            }
+        });
     }
 }
 

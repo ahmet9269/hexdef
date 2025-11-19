@@ -40,7 +40,7 @@ install:
 	@cp -r ${BUILD_DIR}/* ${DEPLOY_DIR}/
 
 # Run tests
-test:
+qwewqe:
 	@echo "Running tests..."
 	@cd ${SRC_DIR}/app && $(MAKE) test
 	@cd ${SRC_DIR}/dark && $(MAKE) test

@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import * as fs from 'fs';
+import * as path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 export async function addRemoveDatagrams(uri: vscode.Uri) {
     try {
@@ -653,4 +657,386 @@ export async function createNewDatagram(uri: vscode.Uri) {
     } catch (error) {
         vscode.window.showErrorMessage(`Error creating datagram: ${error}`);
     }
+}
+
+export async function runMake(uri: vscode.Uri) {
+    const folderPath = uri.fsPath;
+    
+    // Tıklanan klasörden yukarı çıkarak Makefile ara
+    const makefilePath = findMakefileInParents(folderPath);
+    
+    if (!makefilePath) {
+        vscode.window.showErrorMessage(
+            'No Makefile found in this directory or parent directories.'
+        );
+        return;
+    }
+
+    const projectDir = path.dirname(makefilePath);
+    const projectName = path.basename(projectDir);
+
+    // Makefile'dan target'ları otomatik algıla
+    const targets = parseMakefileTargets(makefilePath);
+    
+    // Target listesi oluştur
+    const targetOptions = targets.length > 0 
+        ? [...targets, '---', 'custom...']
+        : ['all (default)', 'build', 'clean', 'install', 'test', 'custom...'];
+
+    // Kullanıcıya make target'ını sor
+    const target = await vscode.window.showQuickPick(targetOptions, {
+        placeHolder: 'Select make target',
+        title: `Run make in ${projectName}`
+    });
+
+    if (!target || target === '---') {
+        return;
+    }
+
+    let makeCommand = 'make';
+    let makeTarget = '';
+    
+    if (target === 'custom...') {
+        const customTarget = await vscode.window.showInputBox({
+            prompt: 'Enter custom make target',
+            placeHolder: 'e.g., debug, release, install'
+        });
+        
+        if (!customTarget) {
+            return;
+        }
+        
+        makeTarget = customTarget;
+        makeCommand = `make ${customTarget}`;
+    } else if (target !== 'all (default)') {
+        makeTarget = target;
+        makeCommand = `make ${target}`;
+    }
+
+    // Output channel oluştur
+    const outputChannel = vscode.window.createOutputChannel(`Make - ${projectName}`);
+    outputChannel.clear();
+    outputChannel.show(true);
+    
+    outputChannel.appendLine(`========================================`);
+    outputChannel.appendLine(`Project: ${projectName}`);
+    outputChannel.appendLine(`Directory: ${projectDir}`);
+    outputChannel.appendLine(`Command: ${makeCommand}`);
+    outputChannel.appendLine(`========================================`);
+    outputChannel.appendLine('');
+
+    try {
+        // Async olarak make çalıştır ve çıktıyı göster
+        vscode.window.showInformationMessage(
+            `Running '${makeCommand}' in ${projectName}...`
+        );
+
+        const { stdout, stderr } = await execAsync(makeCommand, {
+            cwd: projectDir,
+            env: process.env
+        });
+
+        // Stdout çıktısı
+        if (stdout) {
+            outputChannel.appendLine(stdout);
+        }
+
+        // Stderr (uyarılar genelde stderr'de)
+        if (stderr && stderr.trim().length > 0) {
+            outputChannel.appendLine('--- Warnings/Info ---');
+            outputChannel.appendLine(stderr);
+        }
+
+        outputChannel.appendLine('');
+        outputChannel.appendLine(`========================================`);
+        outputChannel.appendLine(`✓ Make completed successfully!`);
+        outputChannel.appendLine(`========================================`);
+
+        vscode.window.showInformationMessage(
+            `✓ Make ${makeTarget || 'all'} completed successfully in ${projectName}!`
+        );
+
+    } catch (error: any) {
+        // Hata durumu
+        outputChannel.appendLine('');
+        outputChannel.appendLine(`========================================`);
+        outputChannel.appendLine(`✗ Make failed!`);
+        outputChannel.appendLine(`========================================`);
+        
+        if (error.stdout) {
+            outputChannel.appendLine('--- Output ---');
+            outputChannel.appendLine(error.stdout);
+        }
+        
+        if (error.stderr) {
+            outputChannel.appendLine('--- Error ---');
+            outputChannel.appendLine(error.stderr);
+        }
+
+        vscode.window.showErrorMessage(
+            `✗ Make failed in ${projectName}. Check output for details.`,
+            'Show Output'
+        ).then(selection => {
+            if (selection === 'Show Output') {
+                outputChannel.show();
+            }
+        });
+    }
+}
+
+function parseMakefileTargets(makefilePath: string): string[] {
+    try {
+        const content = fs.readFileSync(makefilePath, 'utf-8');
+        const lines = content.split('\n');
+        const targets: string[] = [];
+        
+        // Makefile target pattern: target: dependencies
+        // Regex: satır başında alfanumerik karakter + : ile biten
+        const targetRegex = /^([a-zA-Z0-9_-]+)\s*:/;
+        
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            
+            // Yorum satırlarını atla
+            if (trimmedLine.startsWith('#')) {
+                continue;
+            }
+            
+            // Değişken tanımlamalarını atla (=, :=, ?=, +=)
+            if (trimmedLine.includes('=') && !trimmedLine.includes(':')) {
+                continue;
+            }
+            
+            const match = trimmedLine.match(targetRegex);
+            if (match) {
+                const targetName = match[1];
+                
+                // Özel pattern'leri atla (%, .PHONY, vb.)
+                if (targetName.includes('%') || targetName.startsWith('.')) {
+                    continue;
+                }
+                
+                targets.push(targetName);
+            }
+        }
+        
+        // Tekrar edenleri kaldır ve sırala
+        const uniqueTargets = Array.from(new Set(targets));
+        
+        // 'all' varsa en başa al, yoksa başa ekle
+        const sortedTargets: string[] = [];
+        
+        if (uniqueTargets.includes('all')) {
+            sortedTargets.push('all');
+        }
+        
+        // Diğer yaygın target'ları öncelikli sırala
+        const priorityTargets = ['build', 'clean', 'install', 'test', 'run'];
+        for (const priority of priorityTargets) {
+            if (uniqueTargets.includes(priority) && priority !== 'all') {
+                sortedTargets.push(priority);
+            }
+        }
+        
+        // Kalan target'ları alfabetik ekle
+        const remainingTargets = uniqueTargets
+            .filter(t => !sortedTargets.includes(t))
+            .sort();
+        
+        sortedTargets.push(...remainingTargets);
+        
+        console.log(`Found ${sortedTargets.length} targets in ${makefilePath}:`, sortedTargets);
+        
+        return sortedTargets;
+        
+    } catch (error) {
+        console.error('Failed to parse Makefile:', error);
+        return [];
+    }
+}
+
+function findMakefileInParents(startPath: string): string | null {
+    let currentPath = startPath;
+    
+    // Dosya ise, parent dizinine git
+    if (fs.existsSync(currentPath) && fs.statSync(currentPath).isFile()) {
+        currentPath = path.dirname(currentPath);
+    }
+    
+    // Maksimum 5 seviye yukarı çık
+    for (let i = 0; i < 5; i++) {
+        const makefilePath = path.join(currentPath, 'Makefile');
+        
+        if (fs.existsSync(makefilePath)) {
+            console.log(`Found Makefile at: ${makefilePath}`);
+            return makefilePath;
+        }
+        
+        // Bir üst dizine çık
+        const parentPath = path.dirname(currentPath);
+        
+        // Root'a ulaştıysak dur
+        if (parentPath === currentPath) {
+            break;
+        }
+        
+        currentPath = parentPath;
+    }
+    
+    return null;
+}
+
+export async function regenerateCode(uri: vscode.Uri) {
+    const folderPath = uri.fsPath;
+    
+    // Proje kök dizinini bul (Makefile içeren)
+    const projectRoot = findProjectRoot(folderPath);
+    
+    if (!projectRoot) {
+        vscode.window.showErrorMessage(
+            'Could not find project root. Make sure you are inside a HexArch project.'
+        );
+        return;
+    }
+
+    const projectName = path.basename(projectRoot);
+    
+    // Regenerate edilecek Makefile'ları bul
+    const makefilePaths = [
+        path.join(projectRoot, 'src', 'dark_src', 'src', projectName, 'Makefile'),
+        path.join(projectRoot, 'src', projectName, 'src', projectName, 'Makefile')
+    ];
+
+    // Var olan Makefile'ları filtrele
+    const existingMakefiles = makefilePaths.filter(p => fs.existsSync(p));
+    
+    if (existingMakefiles.length === 0) {
+        vscode.window.showWarningMessage(
+            `No Makefile found for code regeneration in ${projectName}.\n` +
+            `Expected locations:\n` +
+            `- src/dark_src/src/${projectName}/Makefile\n` +
+            `- src/${projectName}/src/${projectName}/Makefile`
+        );
+        return;
+    }
+
+    // Output channel oluştur
+    const outputChannel = vscode.window.createOutputChannel(`Regenerate Code - ${projectName}`);
+    outputChannel.clear();
+    outputChannel.show(true);
+    
+    outputChannel.appendLine(`========================================`);
+    outputChannel.appendLine(`Regenerating Code for ${projectName}`);
+    outputChannel.appendLine(`Project Root: ${projectRoot}`);
+    outputChannel.appendLine(`Found ${existingMakefiles.length} Makefile(s)`);
+    outputChannel.appendLine(`========================================`);
+    outputChannel.appendLine('');
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // Her Makefile için regenerate_code çalıştır
+    for (const makefilePath of existingMakefiles) {
+        const makefileDir = path.dirname(makefilePath);
+        const relativePath = path.relative(projectRoot, makefilePath);
+        
+        outputChannel.appendLine(`>>> Running: make regenerate_code in ${relativePath}`);
+        outputChannel.appendLine(`    Directory: ${makefileDir}`);
+        outputChannel.appendLine('');
+
+        try {
+            const { stdout, stderr } = await execAsync('make regenerate_code', {
+                cwd: makefileDir,
+                env: process.env
+            });
+
+            // Çıktıyı göster
+            if (stdout) {
+                outputChannel.appendLine(stdout);
+            }
+
+            if (stderr && stderr.trim().length > 0) {
+                outputChannel.appendLine('--- Warnings ---');
+                outputChannel.appendLine(stderr);
+            }
+
+            outputChannel.appendLine(`✓ Success: ${relativePath}`);
+            outputChannel.appendLine('');
+            successCount++;
+
+        } catch (error: any) {
+            outputChannel.appendLine(`✗ Failed: ${relativePath}`);
+            
+            if (error.stdout) {
+                outputChannel.appendLine('--- Output ---');
+                outputChannel.appendLine(error.stdout);
+            }
+            
+            if (error.stderr) {
+                outputChannel.appendLine('--- Error ---');
+                outputChannel.appendLine(error.stderr);
+            }
+            
+            outputChannel.appendLine('');
+            failCount++;
+        }
+    }
+
+    // Özet
+    outputChannel.appendLine(`========================================`);
+    outputChannel.appendLine(`Code Regeneration Summary`);
+    outputChannel.appendLine(`  Total: ${existingMakefiles.length}`);
+    outputChannel.appendLine(`  Success: ${successCount}`);
+    outputChannel.appendLine(`  Failed: ${failCount}`);
+    outputChannel.appendLine(`========================================`);
+
+    // Bildirim göster
+    if (failCount === 0) {
+        vscode.window.showInformationMessage(
+            `✓ Code regenerated successfully in ${projectName}! (${successCount}/${existingMakefiles.length})`
+        );
+    } else {
+        vscode.window.showWarningMessage(
+            `⚠ Code regeneration completed with errors in ${projectName}. ` +
+            `Success: ${successCount}, Failed: ${failCount}`,
+            'Show Output'
+        ).then(selection => {
+            if (selection === 'Show Output') {
+                outputChannel.show();
+            }
+        });
+    }
+}
+
+function findProjectRoot(startPath: string): string | null {
+    let currentPath = startPath;
+    
+    // Dosya ise, parent dizinine git
+    if (fs.existsSync(currentPath) && fs.statSync(currentPath).isFile()) {
+        currentPath = path.dirname(currentPath);
+    }
+    
+    // Maksimum 10 seviye yukarı çık
+    for (let i = 0; i < 10; i++) {
+        const makefilePath = path.join(currentPath, 'Makefile');
+        const srcPath = path.join(currentPath, 'src');
+        
+        // Hem Makefile hem src klasörü varsa, bu proje kökü
+        if (fs.existsSync(makefilePath) && fs.existsSync(srcPath)) {
+            console.log(`Found project root at: ${currentPath}`);
+            return currentPath;
+        }
+        
+        // Bir üst dizine çık
+        const parentPath = path.dirname(currentPath);
+        
+        // Root'a ulaştıysak dur
+        if (parentPath === currentPath) {
+            break;
+        }
+        
+        currentPath = parentPath;
+    }
+    
+    return null;
 }
