@@ -406,3 +406,11 @@ export async function createMultiScaffoldProject(uri: vscode.Uri) {
         console.error('❌ Project creation error:', error);
     }
 }
+
+export async function regenerateCode(uri?: vscode.Uri) {
+    vscode.window.showInformationMessage('Regenerate Code - Coming Soon!');
+}
+
+export async function runMake(uri?: vscode.Uri) {
+    vscode.window.showInformationMessage('Run Make - Coming Soon!');
+}

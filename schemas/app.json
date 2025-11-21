@@ -18,10 +18,6 @@
       "type": "directory",
       "path": "doc"
     },
- {
-      "type": "directory",
-      "path": "test"
-    },
     {
       "type": "file",
       "path": "deploy/${DB}.xml",

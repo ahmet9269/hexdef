@@ -28,11 +28,11 @@
         "title": "HexArch: Regenerate Code"
       },
       {
-        "command": "hexdef.kafka.addRemoveDatagrams",
+        "command": "hexdef.middleware.addRemoveDatagrams",
         "title": "Add/Remove Datagram"
       },
       {
-        "command": "hexdef.kafka.createNewDatagram",
+        "command": "hexdef.middleware.createNewDatagram",
         "title": "Create New Datagram"
       }
     ],
@@ -54,26 +54,26 @@
           "group": "hexdef@3"
         },
         {
-          "submenu": "hexdef.kafka",
+          "submenu": "hexdef.middleware",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@4"
         }
       ],
-      "hexdef.kafka": [
+      "hexdef.middleware": [
         {
-          "command": "hexdef.kafka.addRemoveDatagrams",
-          "group": "kafka@1"
+          "command": "hexdef.middleware.addRemoveDatagrams",
+          "group": "middleware@1"
         },
         {
-          "command": "hexdef.kafka.createNewDatagram",
-          "group": "kafka@2"
+          "command": "hexdef.middleware.createNewDatagram",
+          "group": "middleware@2"
         }
       ]
     },
     "submenus": [
       {
-        "id": "hexdef.kafka",
-        "label": "Kafka"
+        "id": "hexdef.middleware",
+        "label": "Middleware"
       }
     ]
   },

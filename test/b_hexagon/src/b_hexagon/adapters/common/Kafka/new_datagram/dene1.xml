@@ -1,9 +1,0 @@
-<?xml version="1.0" standalone="no"?>
-<!DOCTYPE datagram >
-
-<Kafka name="dene1" >
-<definition>
-    <field name="dummy" type="long" />
-</definition>
-<keys></keys>
-</Kafka>
