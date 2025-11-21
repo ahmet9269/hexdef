@@ -100,6 +100,7 @@ function generateProgramXml(selections: any[]): string {
     return xmlContent;
 }
 
+
 /**
  * Yeni datagram oluştur
  */
@@ -371,13 +372,7 @@ export async function addRemoveDatagrams(uri?: vscode.Uri) {
 function getDatagramSelectorHtml(datagramFiles: string[]): string {
     const datagramList = datagramFiles.map(file => {
         const name = file.replace('.xml', '');
-        return `
-            <tr>
-                <td>${name}</td>
-                <td><input type="checkbox" class="pub-checkbox" data-name="${name}"/></td>
-                <td><input type="checkbox" class="sub-checkbox" data-name="${name}"/></td>
-            </tr>
-        `;
+        return `<option value="${name}">${name}</option>`;
     }).join('');
 
     return `
@@ -391,19 +386,38 @@ function getDatagramSelectorHtml(datagramFiles: string[]): string {
                     background-color: var(--vscode-editor-background);
                     color: var(--vscode-editor-foreground);
                 }
-                table { 
-                    width: 100%; 
-                    border-collapse: collapse; 
+                .container {
+                    display: flex;
+                    gap: 20px;
+                    align-items: center;
                     margin: 20px 0;
                 }
-                th, td { 
-                    padding: 10px; 
-                    text-align: left; 
-                    border-bottom: 1px solid var(--vscode-panel-border);
+                .panel {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
                 }
-                th { 
-                    background-color: var(--vscode-editor-selectionBackground);
-                    font-weight: bold;
+                .panel h3 {
+                    margin-bottom: 10px;
+                    color: var(--vscode-foreground);
+                }
+                select {
+                    width: 100%;
+                    height: 300px;
+                    background-color: var(--vscode-input-background);
+                    color: var(--vscode-input-foreground);
+                    border: 1px solid var(--vscode-input-border);
+                    padding: 5px;
+                    font-size: 14px;
+                }
+                select option {
+                    padding: 5px;
+                }
+                .controls {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    justify-content: center;
                 }
                 button {
                     background-color: var(--vscode-button-background);
@@ -411,72 +425,172 @@ function getDatagramSelectorHtml(datagramFiles: string[]): string {
                     border: none;
                     padding: 10px 20px;
                     cursor: pointer;
-                    font-size: 14px;
-                    margin: 10px 5px;
+                    font-size: 16px;
+                    min-width: 60px;
                 }
                 button:hover {
                     background-color: var(--vscode-button-hoverBackground);
                 }
-                .header {
-                    margin-bottom: 20px;
+                button:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
                 }
-                input[type="checkbox"] {
-                    cursor: pointer;
-                    width: 18px;
-                    height: 18px;
+                .action-buttons {
+                    margin-top: 20px;
+                    display: flex;
+                    gap: 10px;
+                }
+                .selected-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 5px;
+                    margin: 2px 0;
+                }
+                .role-selector {
+                    display: flex;
+                    gap: 10px;
+                    font-size: 12px;
+                }
+                .role-selector label {
+                    display: flex;
+                    align-items: center;
+                    gap: 3px;
                 }
             </style>
         </head>
         <body>
-            <div class="header">
-                <h2>Select Datagrams</h2>
-                <p>Choose publish/subscribe options for each datagram</p>
+            <h2>Add/Remove Datagrams</h2>
+            <p>Select datagrams and choose their roles (Publish/Subscribe)</p>
+            
+            <div class="container">
+                <div class="panel">
+                    <h3>Available Datagrams</h3>
+                    <select id="availableList" multiple>
+                        ${datagramList}
+                    </select>
+                </div>
+                
+                <div class="controls">
+                    <button id="addBtn" title="Add selected datagrams →">→</button>
+                    <button id="removeBtn" title="← Remove selected datagrams">←</button>
+                </div>
+                
+                <div class="panel">
+                    <h3>Selected Datagrams</h3>
+                    <div id="selectedList" style="border: 1px solid var(--vscode-input-border); padding: 10px; min-height: 300px; background-color: var(--vscode-input-background);"></div>
+                </div>
             </div>
             
-            <table>
-                <thead>
-                    <tr>
-                        <th>Datagram Name</th>
-                        <th>Publish</th>
-                        <th>Subscribe</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${datagramList}
-                </tbody>
-            </table>
-            
-            <button onclick="saveSelections()">Save All</button>
-            <button onclick="cancel()">Cancel</button>
+            <div class="action-buttons">
+                <button id="saveBtn">Save All</button>
+                <button id="cancelBtn">Cancel</button>
+            </div>
             
             <script>
                 const vscode = acquireVsCodeApi();
                 
-                function saveSelections() {
-                    const selections = [];
-                    const rows = document.querySelectorAll('tbody tr');
-                    
-                    rows.forEach(row => {
-                        const name = row.querySelector('.pub-checkbox').getAttribute('data-name');
-                        const publish = row.querySelector('.pub-checkbox').checked;
-                        const subscribe = row.querySelector('.sub-checkbox').checked;
-                        
-                        if (publish || subscribe) {
-                            selections.push({ name, publish, subscribe });
+                let selectedDatagrams = [];
+                
+                const availableList = document.getElementById('availableList');
+                const selectedListDiv = document.getElementById('selectedList');
+                const addBtn = document.getElementById('addBtn');
+                const removeBtn = document.getElementById('removeBtn');
+                const saveBtn = document.getElementById('saveBtn');
+                const cancelBtn = document.getElementById('cancelBtn');
+                
+                // Add datagram
+                addBtn.addEventListener('click', () => {
+                    const selected = Array.from(availableList.selectedOptions);
+                    selected.forEach(option => {
+                        const name = option.value;
+                        if (!selectedDatagrams.find(d => d.name === name)) {
+                            selectedDatagrams.push({
+                                name: name,
+                                publish: true,
+                                subscribe: false
+                            });
                         }
                     });
+                    renderSelectedList();
+                });
+                
+                // Remove datagram
+                removeBtn.addEventListener('click', () => {
+                    const toRemove = Array.from(document.querySelectorAll('.selected-item input[type="checkbox"]:checked'))
+                        .map(cb => cb.closest('.selected-item').dataset.name);
                     
-                    vscode.postMessage({
-                        command: 'save',
-                        selections: selections
+                    selectedDatagrams = selectedDatagrams.filter(d => !toRemove.includes(d.name));
+                    renderSelectedList();
+                });
+                
+                // Render selected list
+                function renderSelectedList() {
+                    selectedListDiv.innerHTML = selectedDatagrams.map(datagram => \`
+                        <div class="selected-item" data-name="\${datagram.name}">
+                            <input type="checkbox" class="remove-checkbox">
+                            <span>\${datagram.name}</span>
+                            <div class="role-selector">
+                                <label>
+                                    <input type="checkbox" 
+                                           class="pub-check" 
+                                           data-name="\${datagram.name}"
+                                           \${datagram.publish ? 'checked' : ''}>
+                                    Pub
+                                </label>
+                                <label>
+                                    <input type="checkbox" 
+                                           class="sub-check" 
+                                           data-name="\${datagram.name}"
+                                           \${datagram.subscribe ? 'checked' : ''}>
+                                    Sub
+                                </label>
+                            </div>
+                        </div>
+                    \`).join('');
+                    
+                    // Add event listeners for pub/sub checkboxes
+                    document.querySelectorAll('.pub-check').forEach(cb => {
+                        cb.addEventListener('change', (e) => {
+                            const name = e.target.dataset.name;
+                            const datagram = selectedDatagrams.find(d => d.name === name);
+                            if (datagram) {
+                                datagram.publish = e.target.checked;
+                            }
+                        });
+                    });
+                    
+                    document.querySelectorAll('.sub-check').forEach(cb => {
+                        cb.addEventListener('change', (e) => {
+                            const name = e.target.dataset.name;
+                            const datagram = selectedDatagrams.find(d => d.name === name);
+                            if (datagram) {
+                                datagram.subscribe = e.target.checked;
+                            }
+                        });
                     });
                 }
                 
-                function cancel() {
+                // Save
+                saveBtn.addEventListener('click', () => {
+                    if (selectedDatagrams.length === 0) {
+                        alert('Please select at least one datagram!');
+                        return;
+                    }
+                    
                     vscode.postMessage({
-                        command: 'cancel'
+                        command: 'save',
+                        selections: selectedDatagrams
                     });
-                }
+                });
+                
+                // Cancel
+                cancelBtn.addEventListener('click', () => {
+                    vscode.postMessage({ command: 'cancel' });
+                });
+                
+                // Initial render
+                renderSelectedList();
             </script>
         </body>
         </html>
