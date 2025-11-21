@@ -6,890 +6,76 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-export async function addRemoveDatagrams(uri: vscode.Uri) {
-    try {
-        console.log('addRemoveDatagrams called with uri:', uri?.fsPath);
-        
-        if (!uri || !uri.fsPath) {
-            vscode.window.showErrorMessage('No folder selected');
-            return;
-        }
-        
-        const folderPath = uri.fsPath;
-        const projectName = path.basename(folderPath);
-        const projectXmlPath = path.join(folderPath, `${projectName}.xml`);
-        
-        console.log('Project path:', projectXmlPath);
-        
-        // Get available datagrams (this is mock data - you can replace with actual logic)
-        const selectedDatagrams = getSelectedDatagrams(projectXmlPath);
-        const availableDatagrams = getAvailableDatagrams(folderPath, projectXmlPath);
-        
-        console.log('Selected datagrams:', selectedDatagrams.length);
-        console.log('Available datagrams:', availableDatagrams.length);
-        
-        // Create and show webview panel
-        const panel = vscode.window.createWebviewPanel(
-            'kafkaDatagrams',
-            `Kafka Datagrams - ${projectName}`,
-            vscode.ViewColumn.One,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true
-            }
-        );
-        
-        console.log('Webview panel created');
-
-        panel.webview.html = getWebviewContent(availableDatagrams, selectedDatagrams);
-        console.log('Webview HTML set');
-
-        // Handle messages from the webview
-        panel.webview.onDidReceiveMessage(
-            async message => {
-                switch (message.command) {
-                    case 'moveToSelected':
-                        // Don't save yet, just notify
-                        break;
-                    case 'moveToAvailable':
-                        // Don't save yet, just notify
-                        break;
-                    case 'updateCheckbox':
-                        // Don't save yet, just track changes
-                        break;
-                    case 'saveAll':
-                        // Save all selected datagrams with their checkbox states
-                        await saveAllDatagrams(projectXmlPath, message.datagrams);
-                        vscode.window.showInformationMessage(`Saved datagrams to ${projectName}.xml`);
-                        panel.dispose();
-                        break;
-                }
-            },
-            undefined,
-            []
-        );
-    } catch (error) {
-        console.error('Error in addRemoveDatagrams:', error);
-        vscode.window.showErrorMessage(`Failed to open datagram panel: ${error}`);
-    }
-}
-
-function getAvailableDatagrams(folderPath: string, projectXmlPath: string): string[] {
-    // Check environment variable (mandatory)
-    const datagramDir = process.env.DATAGRAM_DIR_PATH;
-    
-    if (!datagramDir) {
-        vscode.window.showErrorMessage('DATAGRAM_DIR_PATH environment variable is not defined. Please set it to the path of your datagram directory.');
-        return [];
-    }
-    
-    try {
-        if (!fs.existsSync(datagramDir)) {
-            vscode.window.showErrorMessage(`DATAGRAM_DIR_PATH is set to "${datagramDir}" but the directory does not exist.`);
-            return [];
-        }
-        
-        console.log('Using datagram directory:', datagramDir);
-        
-        // Read all files in datagram_dir
-        const files = fs.readdirSync(datagramDir);
-        
-        // Filter XML files and remove extension
-        const xmlFiles = files
-            .filter(file => file.toLowerCase().endsWith('.xml'))
-            .map(file => path.basename(file, '.xml'));
-        
-        // Get already selected datagrams to filter them out
-        const selectedDatagrams = getSelectedDatagrams(projectXmlPath);
-        const selectedNames = selectedDatagrams.map(d => d.name);
-        
-        // Return only datagrams not already in the project
-        return xmlFiles.filter(name => !selectedNames.includes(name));
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error reading datagram directory: ${error}`);
-        return [];
-    }
-}
-
-function getSelectedDatagrams(projectXmlPath: string): Array<{name: string, pub: boolean, sub: boolean}> {
-    try {
-        if (!fs.existsSync(projectXmlPath)) {
-            return [];
-        }
-        
-        const content = fs.readFileSync(projectXmlPath, 'utf-8');
-        const datagrams: Array<{name: string, pub: boolean, sub: boolean}> = [];
-        
-        // Parse XML to extract datagrams with type info
-        const datagramRegex = /<datagram name="([^"]+)" type="([^"]+)"\/>/g;
-        let match;
-        
-        while ((match = datagramRegex.exec(content)) !== null) {
-            const name = match[1];
-            const type = match[2];
-            
-            datagrams.push({
-                name: name,
-                pub: type === 'pub' || type === 'pubsub',
-                sub: type === 'sub' || type === 'pubsub'
-            });
-        }
-        
-        return datagrams;
-    } catch (error) {
-        return [];
-    }
-}
-
-async function addDatagramToProject(projectXmlPath: string, datagramName: string, pub: boolean = false, sub: boolean = false) {
-    try {
-        let content = '';
-        
-        // Create or read existing file
-        if (fs.existsSync(projectXmlPath)) {
-            content = fs.readFileSync(projectXmlPath, 'utf-8');
-        } else {
-            content = '<?xml version="1.0" encoding="UTF-8"?>\n<datagrams>\n</datagrams>';
-        }
-        
-        // Check if datagram already exists
-        if (content.includes(`name="${datagramName}"`)) {
-            return;
-        }
-        
-        // Add new datagram before closing tag
-        const datagramEntry = `  <datagram name="${datagramName}" pub="${pub}" sub="${sub}"/>`;
-        content = content.replace('</datagrams>', `${datagramEntry}\n</datagrams>`);
-        
-        fs.writeFileSync(projectXmlPath, content, 'utf-8');
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error adding datagram: ${error}`);
-    }
-}
-
-async function removeDatagramFromProject(projectXmlPath: string, datagramName: string) {
-    try {
-        if (!fs.existsSync(projectXmlPath)) {
-            return;
-        }
-        
-        let content = fs.readFileSync(projectXmlPath, 'utf-8');
-        
-        // Remove the datagram line
-        const regex = new RegExp(`\\s*<datagram name="${datagramName}"[^/]*/>\\n?`, 'g');
-        content = content.replace(regex, '');
-        
-        fs.writeFileSync(projectXmlPath, content, 'utf-8');
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error removing datagram: ${error}`);
-    }
-}
-
-async function updateDatagramCheckbox(projectXmlPath: string, datagramName: string, type: string, checked: boolean) {
-    try {
-        if (!fs.existsSync(projectXmlPath)) {
-            return;
-        }
-        
-        let content = fs.readFileSync(projectXmlPath, 'utf-8');
-        
-        // Find and update the datagram's pub or sub attribute
-        const regex = new RegExp(`(<datagram name="${datagramName}"[^>]*${type}=")([^"]+)(")`, 'g');
-        content = content.replace(regex, `$1${checked}$3`);
-        
-        fs.writeFileSync(projectXmlPath, content, 'utf-8');
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error updating datagram: ${error}`);
-    }
-}
-
-async function saveAllDatagrams(projectXmlPath: string, datagrams: Array<{name: string, pub: boolean, sub: boolean}>) {
-    try {
-        // Create XML content
-        let content = '<?xml version="1.0" encoding="UTF-8"?>\n<datagrams>\n';
-        
-        for (const datagram of datagrams) {
-            const type = datagram.pub && datagram.sub ? 'pubsub' : 
-                        datagram.pub ? 'pub' : 
-                        datagram.sub ? 'sub' : '';
-            
-            if (type) {
-                content += `  <datagram name="${datagram.name}" type="${type}"/>\n`;
-            }
-        }
-        
-        content += '</datagrams>';
-        
-        // Ensure directory exists
-        const dir = path.dirname(projectXmlPath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        
-        fs.writeFileSync(projectXmlPath, content, 'utf-8');
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error saving datagrams: ${error}`);
-    }
-}
-
-function getWebviewContent(available: string[], selected: Array<{name: string, pub: boolean, sub: boolean}>): string {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kafka Datagrams</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: var(--vscode-font-family);
-            padding: 20px;
-            background-color: var(--vscode-editor-background);
-            color: var(--vscode-editor-foreground);
-        }
-        .container {
-            display: flex;
-            gap: 20px;
-            height: calc(100vh - 40px);
-        }
-        .panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            background-color: var(--vscode-editor-background);
-        }
-        .panel-header {
-            padding: 10px;
-            padding-left: 15px;
-            padding-right: 15px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            font-weight: bold;
-            background-color: var(--vscode-editor-background);
-        }
-        .header-row {
-            display: grid;
-            grid-template-columns: 1fr 40px 40px;
-            align-items: center;
-            gap: 8px;
-            padding-right: 13px;
-        }
-        .header-label {
-            text-align: left;
-            padding-left: 0;
-            margin-left: 0px;
-        }
-        .header-checkbox {
-            text-align: center;
-            font-size: 11px;
-        }
-        .search-box {
-            padding: 10px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-        }
-        .search-box input {
-            width: 100%;
-            padding: 8px;
-            background-color: var(--vscode-input-background);
-            color: var(--vscode-input-foreground);
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 2px;
-            font-size: 13px;
-        }
-        .search-box input:focus {
-            outline: 1px solid var(--vscode-focusBorder);
-        }
-        .list-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
-        .list-item {
-            padding: 8px 12px;
-            margin-bottom: 4px;
-            background-color: var(--vscode-list-inactiveSelectionBackground);
-            border-radius: 2px;
-            cursor: pointer;
-            user-select: none;
-            transition: background-color 0.1s;
-        }
-        .list-item:hover {
-            background-color: var(--vscode-list-hoverBackground);
-        }
-        .list-item.selected {
-            background-color: var(--vscode-list-activeSelectionBackground);
-            color: var(--vscode-list-activeSelectionForeground);
-        }
-        .list-item-row {
-            display: grid;
-            grid-template-columns: 1fr 40px 40px;
-            align-items: center;
-            gap: 8px;
-            padding-left: 4px;
-            padding-right: 4px;
-        }
-        .item-name {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .checkbox-col {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .checkbox-col input[type="checkbox"] {
-            cursor: pointer;
-            width: 16px;
-            height: 16px;
-        }
-        .controls {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 10px;
-            min-width: 60px;
-        }
-        .arrow-btn {
-            padding: 10px 20px;
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            border-radius: 2px;
-            cursor: pointer;
-            font-size: 20px;
-            transition: background-color 0.1s;
-        }
-        .arrow-btn:hover {
-            background-color: var(--vscode-button-hoverBackground);
-        }
-        .arrow-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .ok-btn {
-            padding: 8px 20px;
-            background-color: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            border-radius: 2px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: background-color 0.1s;
-            margin-top: 10px;
-        }
-        .ok-btn:hover {
-            background-color: var(--vscode-button-hoverBackground);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="panel">
-            <div class="search-box">
-                <input type="text" id="searchAvailable" placeholder="Search" />
-            </div>
-            <div class="panel-header">
-                <div class="header-label">Datagram Name:</div>
-            </div>
-            <div class="list-container" id="availableList">
-                ${available.map(item => `<div class="list-item" data-name="${item}">${item}</div>`).join('')}
-            </div>
-        </div>
-        
-        <div class="controls">
-            <button class="arrow-btn" id="moveRight" disabled>→</button>
-            <button class="arrow-btn" id="moveLeft" disabled>←</button>
-            <button class="ok-btn" id="okBtn">OK</button>
-        </div>
-        
-        <div class="panel">
-            <div class="search-box">
-                <input type="text" id="searchSelected" placeholder="search" />
-            </div>
-            <div class="panel-header">
-                <div class="header-row">
-                    <div class="header-label">Datagram Name:</div>
-                    <div class="header-checkbox">pub</div>
-                    <div class="header-checkbox">sub</div>
-                </div>
-            </div>
-            <div class="list-container" id="selectedList">
-                ${selected.map(item => `
-                    <div class="list-item" data-name="${item.name}">
-                        <div class="list-item-row">
-                            <div class="item-name">${item.name}</div>
-                            <div class="checkbox-col">
-                                <input type="checkbox" data-type="pub" data-name="${item.name}" ${item.pub ? 'checked' : ''} onclick="event.stopPropagation(); handleCheckboxChange(this)">
-                            </div>
-                            <div class="checkbox-col">
-                                <input type="checkbox" data-type="sub" data-name="${item.name}" ${item.sub ? 'checked' : ''} onclick="event.stopPropagation(); handleCheckboxChange(this)">
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const vscode = acquireVsCodeApi();
-        let selectedAvailable = null;
-        let selectedItem = null;
-
-        // Checkbox change handler
-        function handleCheckboxChange(checkbox) {
-            vscode.postMessage({
-                command: 'updateCheckbox',
-                datagram: checkbox.dataset.name,
-                type: checkbox.dataset.type,
-                checked: checkbox.checked
-            });
-        }
-
-        // Available list handling
-        document.getElementById('availableList').addEventListener('click', (e) => {
-            if (e.target.classList.contains('list-item')) {
-                document.querySelectorAll('#availableList .list-item').forEach(item => {
-                    item.classList.remove('selected');
-                });
-                e.target.classList.add('selected');
-                selectedAvailable = e.target.dataset.name;
-                selectedItem = e.target;
-                document.getElementById('moveRight').disabled = false;
-                document.getElementById('moveLeft').disabled = true;
-            }
-        });
-
-        // Selected list handling
-        document.getElementById('selectedList').addEventListener('click', (e) => {
-            if (e.target.classList.contains('list-item')) {
-                document.querySelectorAll('#selectedList .list-item').forEach(item => {
-                    item.classList.remove('selected');
-                });
-                e.target.classList.add('selected');
-                selectedAvailable = e.target.dataset.name;
-                selectedItem = e.target;
-                document.getElementById('moveLeft').disabled = false;
-                document.getElementById('moveRight').disabled = true;
-            }
-        });
-
-        // Move right button
-        document.getElementById('moveRight').addEventListener('click', () => {
-            if (selectedAvailable && selectedItem) {
-                vscode.postMessage({
-                    command: 'moveToSelected',
-                    datagram: selectedAvailable,
-                    pub: false,
-                    sub: false
-                });
-                // Create new item with checkboxes for selected list (both checked by default)
-                const newItem = document.createElement('div');
-                newItem.className = 'list-item';
-                newItem.dataset.name = selectedAvailable;
-                newItem.innerHTML = \`
-                    <div class="list-item-row">
-                        <div class="item-name">\${selectedAvailable}</div>
-                        <div class="checkbox-col">
-                            <input type="checkbox" data-type="pub" data-name="\${selectedAvailable}" checked onclick="event.stopPropagation(); handleCheckboxChange(this)">
-                        </div>
-                        <div class="checkbox-col">
-                            <input type="checkbox" data-type="sub" data-name="\${selectedAvailable}" checked onclick="event.stopPropagation(); handleCheckboxChange(this)">
-                        </div>
-                    </div>
-                \`;
-                document.getElementById('selectedList').appendChild(newItem);
-                selectedItem.remove();
-                selectedAvailable = null;
-                selectedItem = null;
-                document.getElementById('moveRight').disabled = true;
-            }
-        });
-
-        // Move left button
-        document.getElementById('moveLeft').addEventListener('click', () => {
-            if (selectedAvailable && selectedItem) {
-                vscode.postMessage({
-                    command: 'moveToAvailable',
-                    datagram: selectedAvailable
-                });
-                // Create simple item for available list
-                const newItem = document.createElement('div');
-                newItem.className = 'list-item';
-                newItem.dataset.name = selectedAvailable;
-                newItem.textContent = selectedAvailable;
-                document.getElementById('availableList').appendChild(newItem);
-                selectedItem.remove();
-                selectedAvailable = null;
-                selectedItem = null;
-                document.getElementById('moveLeft').disabled = true;
-            }
-        });
-
-        // Checkbox change handler
-        function handleCheckboxChange(checkbox) {
-            // Just update the checkbox state, will be saved on OK
-        }
-
-        // OK button handler
-        document.getElementById('okBtn').addEventListener('click', () => {
-            // Collect all datagrams in selected list with their checkbox states
-            const datagrams = [];
-            document.querySelectorAll('#selectedList .list-item').forEach(item => {
-                const name = item.dataset.name;
-                const pubCheckbox = item.querySelector('input[data-type="pub"]');
-                const subCheckbox = item.querySelector('input[data-type="sub"]');
-                
-                datagrams.push({
-                    name: name,
-                    pub: pubCheckbox ? pubCheckbox.checked : false,
-                    sub: subCheckbox ? subCheckbox.checked : false
-                });
-            });
-
-            // Send to extension
-            vscode.postMessage({
-                command: 'saveAll',
-                datagrams: datagrams
-            });
-        });
-
-        // Search functionality
-        document.getElementById('searchAvailable').addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            document.querySelectorAll('#availableList .list-item').forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(searchTerm) ? 'block' : 'none';
-            });
-        });
-
-        document.getElementById('searchSelected').addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            document.querySelectorAll('#selectedList .list-item').forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(searchTerm) ? 'block' : 'none';
-            });
-        });
-    </script>
-</body>
-</html>`;
-}
-
-export async function createNewDatagram(uri: vscode.Uri) {
-    const folderPath = uri.fsPath;
-    
-    // Prompt for datagram name
-    const datagramName = await vscode.window.showInputBox({
-        prompt: 'Enter the name for the new datagram',
-        placeHolder: 'e.g., UserEvent, OrderMessage',
-        validateInput: (value) => {
-            if (!value || value.trim().length === 0) {
-                return 'Datagram name cannot be empty';
-            }
-            if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(value)) {
-                return 'Datagram name must start with a letter and contain only letters, numbers, and underscores';
-            }
-            return null;
-        }
-    });
-
-    if (!datagramName) {
-        return; // User cancelled
-    }
-
-    try {
-        // Check for SCHEMAS_DIR environment variable
-        const schemasDir = process.env.SCHEMAS_DIR;
-        
-        if (!schemasDir) {
-            vscode.window.showErrorMessage('SCHEMAS_DIR environment variable is not defined. Please set it to the path of your schemas directory.');
-            return;
-        }
-        
-        const templatePath = path.join(schemasDir, 'datagram.xml');
-        
-        if (!fs.existsSync(templatePath)) {
-            vscode.window.showErrorMessage(`Template file not found at: ${templatePath}`);
-            return;
-        }
-        
-        // Find new_datagram directory (should exist under the clicked folder)
-        const newDatagramDir = path.join(folderPath, 'new_datagram');
-        
-        if (!fs.existsSync(newDatagramDir)) {
-            vscode.window.showErrorMessage(`new_datagram directory not found at: ${newDatagramDir}`);
-            return;
-        }
-        
-        // Read template content
-        const templateContent = fs.readFileSync(templatePath, 'utf-8');
-        
-        // Create new datagram file with the given name in the existing new_datagram folder
-        const newDatagramPath = path.join(newDatagramDir, `${datagramName}.xml`);
-        
-        if (fs.existsSync(newDatagramPath)) {
-            const overwrite = await vscode.window.showWarningMessage(
-                `Datagram "${datagramName}.xml" already exists. Do you want to overwrite it?`,
-                'Yes', 'No'
-            );
-            
-            if (overwrite !== 'Yes') {
-                return;
-            }
-        }
-        
-        // Write the template content to the new file
-        fs.writeFileSync(newDatagramPath, templateContent, 'utf-8');
-        
-        vscode.window.showInformationMessage(`Datagram "${datagramName}.xml" created successfully in ${newDatagramDir}`);
-        
-        // Open the newly created file
-        const document = await vscode.workspace.openTextDocument(newDatagramPath);
-        await vscode.window.showTextDocument(document);
-        
-    } catch (error) {
-        vscode.window.showErrorMessage(`Error creating datagram: ${error}`);
-    }
-}
-
-export async function runMake(uri: vscode.Uri) {
-    const folderPath = uri.fsPath;
-    
-    // Tıklanan klasörden yukarı çıkarak Makefile ara
-    const makefilePath = findMakefileInParents(folderPath);
-    
-    if (!makefilePath) {
-        vscode.window.showErrorMessage(
-            'No Makefile found in this directory or parent directories.'
-        );
-        return;
-    }
-
-    const projectDir = path.dirname(makefilePath);
-    const projectName = path.basename(projectDir);
-
-    // Makefile'dan target'ları otomatik algıla
-    const targets = parseMakefileTargets(makefilePath);
-    
-    // Target listesi oluştur
-    const targetOptions = targets.length > 0 
-        ? [...targets, '---', 'custom...']
-        : ['all (default)', 'build', 'clean', 'install', 'test', 'custom...'];
-
-    // Kullanıcıya make target'ını sor
-    const target = await vscode.window.showQuickPick(targetOptions, {
-        placeHolder: 'Select make target',
-        title: `Run make in ${projectName}`
-    });
-
-    if (!target || target === '---') {
-        return;
-    }
-
-    let makeCommand = 'make';
-    let makeTarget = '';
-    
-    if (target === 'custom...') {
-        const customTarget = await vscode.window.showInputBox({
-            prompt: 'Enter custom make target',
-            placeHolder: 'e.g., debug, release, install'
-        });
-        
-        if (!customTarget) {
-            return;
-        }
-        
-        makeTarget = customTarget;
-        makeCommand = `make ${customTarget}`;
-    } else if (target !== 'all (default)') {
-        makeTarget = target;
-        makeCommand = `make ${target}`;
-    }
-
-    // Output channel oluştur
-    const outputChannel = vscode.window.createOutputChannel(`Make - ${projectName}`);
-    outputChannel.clear();
-    outputChannel.show(true);
-    
-    outputChannel.appendLine(`========================================`);
-    outputChannel.appendLine(`Project: ${projectName}`);
-    outputChannel.appendLine(`Directory: ${projectDir}`);
-    outputChannel.appendLine(`Command: ${makeCommand}`);
-    outputChannel.appendLine(`========================================`);
-    outputChannel.appendLine('');
-
-    try {
-        // Async olarak make çalıştır ve çıktıyı göster
-        vscode.window.showInformationMessage(
-            `Running '${makeCommand}' in ${projectName}...`
-        );
-
-        const { stdout, stderr } = await execAsync(makeCommand, {
-            cwd: projectDir,
-            env: process.env
-        });
-
-        // Stdout çıktısı
-        if (stdout) {
-            outputChannel.appendLine(stdout);
-        }
-
-        // Stderr (uyarılar genelde stderr'de)
-        if (stderr && stderr.trim().length > 0) {
-            outputChannel.appendLine('--- Warnings/Info ---');
-            outputChannel.appendLine(stderr);
-        }
-
-        outputChannel.appendLine('');
-        outputChannel.appendLine(`========================================`);
-        outputChannel.appendLine(`✓ Make completed successfully!`);
-        outputChannel.appendLine(`========================================`);
-
-        vscode.window.showInformationMessage(
-            `✓ Make ${makeTarget || 'all'} completed successfully in ${projectName}!`
-        );
-
-    } catch (error: any) {
-        // Hata durumu
-        outputChannel.appendLine('');
-        outputChannel.appendLine(`========================================`);
-        outputChannel.appendLine(`✗ Make failed!`);
-        outputChannel.appendLine(`========================================`);
-        
-        if (error.stdout) {
-            outputChannel.appendLine('--- Output ---');
-            outputChannel.appendLine(error.stdout);
-        }
-        
-        if (error.stderr) {
-            outputChannel.appendLine('--- Error ---');
-            outputChannel.appendLine(error.stderr);
-        }
-
-        vscode.window.showErrorMessage(
-            `✗ Make failed in ${projectName}. Check output for details.`,
-            'Show Output'
-        ).then(selection => {
-            if (selection === 'Show Output') {
-                outputChannel.show();
-            }
-        });
-    }
-}
-
-function parseMakefileTargets(makefilePath: string): string[] {
-    try {
-        const content = fs.readFileSync(makefilePath, 'utf-8');
-        const lines = content.split('\n');
-        const targets: string[] = [];
-        
-        // Makefile target pattern: target: dependencies
-        // Regex: satır başında alfanumerik karakter + : ile biten
-        const targetRegex = /^([a-zA-Z0-9_-]+)\s*:/;
-        
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            
-            // Yorum satırlarını atla
-            if (trimmedLine.startsWith('#')) {
-                continue;
-            }
-            
-            // Değişken tanımlamalarını atla (=, :=, ?=, +=)
-            if (trimmedLine.includes('=') && !trimmedLine.includes(':')) {
-                continue;
-            }
-            
-            const match = trimmedLine.match(targetRegex);
-            if (match) {
-                const targetName = match[1];
-                
-                // Özel pattern'leri atla (%, .PHONY, vb.)
-                if (targetName.includes('%') || targetName.startsWith('.')) {
-                    continue;
-                }
-                
-                targets.push(targetName);
-            }
-        }
-        
-        // Tekrar edenleri kaldır ve sırala
-        const uniqueTargets = Array.from(new Set(targets));
-        
-        // 'all' varsa en başa al, yoksa başa ekle
-        const sortedTargets: string[] = [];
-        
-        if (uniqueTargets.includes('all')) {
-            sortedTargets.push('all');
-        }
-        
-        // Diğer yaygın target'ları öncelikli sırala
-        const priorityTargets = ['build', 'clean', 'install', 'test', 'run'];
-        for (const priority of priorityTargets) {
-            if (uniqueTargets.includes(priority) && priority !== 'all') {
-                sortedTargets.push(priority);
-            }
-        }
-        
-        // Kalan target'ları alfabetik ekle
-        const remainingTargets = uniqueTargets
-            .filter(t => !sortedTargets.includes(t))
-            .sort();
-        
-        sortedTargets.push(...remainingTargets);
-        
-        console.log(`Found ${sortedTargets.length} targets in ${makefilePath}:`, sortedTargets);
-        
-        return sortedTargets;
-        
-    } catch (error) {
-        console.error('Failed to parse Makefile:', error);
-        return [];
-    }
-}
-
-function findMakefileInParents(startPath: string): string | null {
+/**
+ * Marker klasörünü içeren dizini bul
+ */
+function findMarkerDirectory(startPath: string, markerName: string): string | null {
     let currentPath = startPath;
     
-    // Dosya ise, parent dizinine git
-    if (fs.existsSync(currentPath) && fs.statSync(currentPath).isFile()) {
-        currentPath = path.dirname(currentPath);
-    }
-    
-    // Maksimum 5 seviye yukarı çık
-    for (let i = 0; i < 5; i++) {
-        const makefilePath = path.join(currentPath, 'Makefile');
+    // Maksimum 15 seviye yukarı çık
+    for (let i = 0; i < 15; i++) {
+        const markerPath = path.join(currentPath, markerName);
         
-        if (fs.existsSync(makefilePath)) {
-            console.log(`Found Makefile at: ${makefilePath}`);
-            return makefilePath;
+        // Marker klasörünün varlığını kontrol et
+        if (fs.existsSync(markerPath) && fs.statSync(markerPath).isDirectory()) {
+            console.log(`✅ Found marker directory: ${markerPath}`);
+            return currentPath; // Marker'ı içeren dizini döndür
         }
         
         // Bir üst dizine çık
         const parentPath = path.dirname(currentPath);
-        
-        // Root'a ulaştıysak dur
         if (parentPath === currentPath) {
             break;
         }
-        
         currentPath = parentPath;
+    }
+    
+    console.log(`❌ Marker not found: ${markerName} (searched from ${startPath})`);
+    return null;
+}
+
+/**
+ * Proje kök dizinini bul (.project_root marker'ını ara)
+ */
+function findProjectRoot(folderPath: string): string | null {
+    const projectRootDir = findMarkerDirectory(folderPath, '.project_root');
+    
+    if (projectRootDir) {
+        // .project_root klasörü proje kök dizinindedir
+        console.log(`🔍 Found project root: ${projectRootDir}`);
+        return projectRootDir;
     }
     
     return null;
 }
 
-export async function regenerateCode(uri: vscode.Uri) {
+/**
+ * Dark veya Gray proje dizinini bul
+ */
+function findComponentDirectory(folderPath: string): { type: 'dark' | 'gray', dir: string } | null {
+    // Önce .project_dark ara
+    const darkDir = findMarkerDirectory(folderPath, '.project_dark');
+    if (darkDir) {
+        console.log(`🔍 Found dark component: ${darkDir}`);
+        return { type: 'dark', dir: darkDir };
+    }
+    
+    // Sonra .project_gray ara
+    const grayDir = findMarkerDirectory(folderPath, '.project_gray');
+    if (grayDir) {
+        console.log(`🔍 Found gray component: ${grayDir}`);
+        return { type: 'gray', dir: grayDir };
+    }
+    
+    return null;
+}
+
+// ...existing code for addRemoveDatagrams, findDatagramDirectories, createDatagramDirectories, saveDatagramsToXML, getWebviewContent...
+
+export async function addRemoveDatagrams(uri: vscode.Uri) {
     const folderPath = uri.fsPath;
     
-    // Proje kök dizinini bul (Makefile içeren)
+    // Proje kök dizinini bul
     const projectRoot = findProjectRoot(folderPath);
     
     if (!projectRoot) {
@@ -901,142 +87,577 @@ export async function regenerateCode(uri: vscode.Uri) {
 
     const projectName = path.basename(projectRoot);
     
-    // Regenerate edilecek Makefile'ları bul
-    const makefilePaths = [
-        path.join(projectRoot, 'src', 'dark_src', 'src', projectName, 'Makefile'),
-        path.join(projectRoot, 'src', projectName, 'src', projectName, 'Makefile')
-    ];
-
-    // Var olan Makefile'ları filtrele
-    const existingMakefiles = makefilePaths.filter(p => fs.existsSync(p));
+    // MW_NAME'i al (Kafka, RabbitMQ, vb.)
+    const config = vscode.workspace.getConfiguration('hexdef');
+    const mwName = config.get<string>('middlewareName') || process.env.MW_NAME || 'Kafka';
     
-    if (existingMakefiles.length === 0) {
+    // Datagram kayıt dizini pattern'i
+    const datagramSaveDir = process.env.DATAGRAM_SAVE_DIR || 'adapters/common';
+    
+    // Tüm adapters/common/{MW_NAME}/ dizinlerini bul
+    const datagramDirs = findDatagramDirectories(projectRoot, datagramSaveDir, mwName);
+    
+    if (datagramDirs.length === 0) {
         vscode.window.showWarningMessage(
-            `No Makefile found for code regeneration in ${projectName}.\n` +
-            `Expected locations:\n` +
-            `- src/dark_src/src/${projectName}/Makefile\n` +
-            `- src/${projectName}/src/${projectName}/Makefile`
+            `No datagram directories found in ${projectName}.\n` +
+            `Expected pattern: */${datagramSaveDir}/${mwName}/\n\n` +
+            `Would you like to create them?`,
+            'Yes', 'No'
+        ).then(async (selection) => {
+            if (selection === 'Yes') {
+                await createDatagramDirectories(projectRoot, datagramSaveDir, mwName);
+                // Yeniden çalıştır
+                addRemoveDatagrams(uri);
+            }
+        });
+        return;
+    }
+
+    // DATAGRAM_DIR_PATH'den mevcut datagram'ları listele
+    const datagramDirPath = process.env.DATAGRAM_DIR_PATH;
+    if (!datagramDirPath || !fs.existsSync(datagramDirPath)) {
+        vscode.window.showErrorMessage(
+            'DATAGRAM_DIR_PATH environment variable is not set or directory does not exist.'
         );
         return;
     }
 
-    // Output channel oluştur
-    const outputChannel = vscode.window.createOutputChannel(`Regenerate Code - ${projectName}`);
-    outputChannel.clear();
-    outputChannel.show(true);
+    const availableDatagrams = fs.readdirSync(datagramDirPath)
+        .filter(file => file.endsWith('.xml'))
+        .map(file => file.replace('.xml', ''));
+
+    // Webview panel oluştur
+    const panel = vscode.window.createWebviewPanel(
+        'datagramManager',
+        `Manage Datagrams - ${projectName}`,
+        vscode.ViewColumn.One,
+        {
+            enableScripts: true
+        }
+    );
+
+    // Webview içeriği
+    panel.webview.html = getWebviewContent(availableDatagrams, [], datagramDirs.length);
+
+    // Mesaj dinleyici
+    panel.webview.onDidReceiveMessage(async message => {
+        switch (message.command) {
+            case 'saveAll':
+                // Her dizine kaydet
+                for (const dir of datagramDirs) {
+                    const xmlPath = path.join(dir, `${projectName}.xml`);
+                    await saveDatagramsToXML(xmlPath, message.datagrams);
+                }
+                
+                vscode.window.showInformationMessage(
+                    `Datagrams saved to ${datagramDirs.length} location(s):\n` +
+                    datagramDirs.map(d => `  • ${path.relative(projectRoot, d)}`).join('\n')
+                );
+                panel.dispose();
+                break;
+        }
+    });
+}
+
+function findDatagramDirectories(
+    projectRoot: string, 
+    saveDir: string, 
+    mwName: string
+): string[] {
+    const dirs: string[] = [];
     
-    outputChannel.appendLine(`========================================`);
-    outputChannel.appendLine(`Regenerating Code for ${projectName}`);
-    outputChannel.appendLine(`Project Root: ${projectRoot}`);
-    outputChannel.appendLine(`Found ${existingMakefiles.length} Makefile(s)`);
-    outputChannel.appendLine(`========================================`);
-    outputChannel.appendLine('');
-
-    let successCount = 0;
-    let failCount = 0;
-
-    // Her Makefile için regenerate_code çalıştır
-    for (const makefilePath of existingMakefiles) {
-        const makefileDir = path.dirname(makefilePath);
-        const relativePath = path.relative(projectRoot, makefilePath);
+    // adapters/common/{MW_NAME} pattern'ini ara
+    const searchPattern = path.join(saveDir, mwName);
+    
+    function searchRecursive(dir: string, depth: number = 0) {
+        if (depth > 10) return; // Maksimum derinlik
         
-        outputChannel.appendLine(`>>> Running: make regenerate_code in ${relativePath}`);
-        outputChannel.appendLine(`    Directory: ${makefileDir}`);
-        outputChannel.appendLine('');
-
         try {
-            const { stdout, stderr } = await execAsync('make regenerate_code', {
-                cwd: makefileDir,
-                env: process.env
-            });
-
-            // Çıktıyı göster
-            if (stdout) {
-                outputChannel.appendLine(stdout);
-            }
-
-            if (stderr && stderr.trim().length > 0) {
-                outputChannel.appendLine('--- Warnings ---');
-                outputChannel.appendLine(stderr);
-            }
-
-            outputChannel.appendLine(`✓ Success: ${relativePath}`);
-            outputChannel.appendLine('');
-            successCount++;
-
-        } catch (error: any) {
-            outputChannel.appendLine(`✗ Failed: ${relativePath}`);
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
             
-            if (error.stdout) {
-                outputChannel.appendLine('--- Output ---');
-                outputChannel.appendLine(error.stdout);
+            for (const entry of entries) {
+                if (!entry.isDirectory()) continue;
+                
+                const fullPath = path.join(dir, entry.name);
+                
+                // Pattern eşleşmesi kontrol et
+                if (fullPath.includes(searchPattern)) {
+                    dirs.push(fullPath);
+                    console.log(`Found datagram directory: ${fullPath}`);
+                } else {
+                    // Alt dizinlerde ara
+                    searchRecursive(fullPath, depth + 1);
+                }
             }
-            
-            if (error.stderr) {
-                outputChannel.appendLine('--- Error ---');
-                outputChannel.appendLine(error.stderr);
-            }
-            
-            outputChannel.appendLine('');
-            failCount++;
+        } catch (error) {
+            // Erişilemeyen dizinleri atla
         }
     }
+    
+    searchRecursive(projectRoot);
+    return dirs;
+}
 
-    // Özet
-    outputChannel.appendLine(`========================================`);
-    outputChannel.appendLine(`Code Regeneration Summary`);
-    outputChannel.appendLine(`  Total: ${existingMakefiles.length}`);
-    outputChannel.appendLine(`  Success: ${successCount}`);
-    outputChannel.appendLine(`  Failed: ${failCount}`);
-    outputChannel.appendLine(`========================================`);
-
-    // Bildirim göster
-    if (failCount === 0) {
-        vscode.window.showInformationMessage(
-            `✓ Code regenerated successfully in ${projectName}! (${successCount}/${existingMakefiles.length})`
-        );
-    } else {
-        vscode.window.showWarningMessage(
-            `⚠ Code regeneration completed with errors in ${projectName}. ` +
-            `Success: ${successCount}, Failed: ${failCount}`,
-            'Show Output'
-        ).then(selection => {
-            if (selection === 'Show Output') {
-                outputChannel.show();
+async function createDatagramDirectories(
+    projectRoot: string,
+    saveDir: string,
+    mwName: string
+): Promise<void> {
+    // Tipik HexArch yapısında olası yerler
+    const components = ['src/app', 'src/dark_src', 'src/white_src'];
+    const projectName = path.basename(projectRoot);
+    
+    for (const component of components) {
+        const componentPath = path.join(projectRoot, component, 'src', projectName);
+        
+        if (fs.existsSync(componentPath)) {
+            const datagramPath = path.join(componentPath, saveDir, mwName);
+            
+            if (!fs.existsSync(datagramPath)) {
+                fs.mkdirSync(datagramPath, { recursive: true });
+                console.log(`Created: ${datagramPath}`);
+                vscode.window.showInformationMessage(
+                    `Created directory: ${path.relative(projectRoot, datagramPath)}`
+                );
             }
-        });
+        }
     }
 }
 
-function findProjectRoot(startPath: string): string | null {
-    let currentPath = startPath;
+async function saveDatagramsToXML(
+    xmlPath: string, 
+    datagrams: Array<{ name: string, pub: boolean, sub: boolean }>
+): Promise<void> {
+    let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n<datagrams>\n';
     
-    // Dosya ise, parent dizinine git
-    if (fs.existsSync(currentPath) && fs.statSync(currentPath).isFile()) {
-        currentPath = path.dirname(currentPath);
-    }
-    
-    // Maksimum 10 seviye yukarı çık
-    for (let i = 0; i < 10; i++) {
-        const makefilePath = path.join(currentPath, 'Makefile');
-        const srcPath = path.join(currentPath, 'src');
-        
-        // Hem Makefile hem src klasörü varsa, bu proje kökü
-        if (fs.existsSync(makefilePath) && fs.existsSync(srcPath)) {
-            console.log(`Found project root at: ${currentPath}`);
-            return currentPath;
+    for (const dg of datagrams) {
+        let type = '';
+        if (dg.pub && dg.sub) {
+            type = 'pubsub';
+        } else if (dg.pub) {
+            type = 'pub';
+        } else if (dg.sub) {
+            type = 'sub';
         }
         
-        // Bir üst dizine çık
-        const parentPath = path.dirname(currentPath);
-        
-        // Root'a ulaştıysak dur
-        if (parentPath === currentPath) {
-            break;
+        if (type) {
+            xmlContent += `  <datagram name="${dg.name}" type="${type}"/>\n`;
         }
-        
-        currentPath = parentPath;
     }
     
-    return null;
+    xmlContent += '</datagrams>\n';
+    
+    // Dizin yoksa oluştur
+    const dir = path.dirname(xmlPath);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    fs.writeFileSync(xmlPath, xmlContent, 'utf-8');
+    console.log(`Saved datagrams to: ${xmlPath}`);
+}
+
+function getWebviewContent(
+    available: string[], 
+    selected: Array<{ name: string, pub: boolean, sub: boolean }>,
+    targetCount: number
+): string {
+    return `<!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { 
+                font-family: var(--vscode-font-family); 
+                padding: 20px;
+                color: var(--vscode-foreground);
+                background-color: var(--vscode-editor-background);
+            }
+            .info-banner {
+                background-color: var(--vscode-editorInfo-background);
+                color: var(--vscode-editorInfo-foreground);
+                padding: 10px;
+                margin-bottom: 20px;
+                border-radius: 4px;
+                border-left: 4px solid var(--vscode-editorInfo-border);
+            }
+            .container { 
+                display: flex; 
+                gap: 20px; 
+                margin-top: 20px;
+            }
+            .list-container { 
+                flex: 1; 
+                border: 1px solid var(--vscode-panel-border);
+                border-radius: 4px;
+                padding: 10px;
+            }
+            .list-container h3 { 
+                margin-top: 0; 
+                color: var(--vscode-foreground);
+            }
+            .datagram-item { 
+                padding: 8px; 
+                margin: 5px 0; 
+                background-color: var(--vscode-list-hoverBackground);
+                border-radius: 3px;
+                cursor: pointer;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .datagram-item:hover { 
+                background-color: var(--vscode-list-activeSelectionBackground);
+            }
+            .checkboxes { 
+                display: flex; 
+                gap: 10px; 
+            }
+            .checkboxes label {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .search-box { 
+                width: 100%; 
+                padding: 8px;
+                margin-bottom: 10px;
+                background-color: var(--vscode-input-background);
+                color: var(--vscode-input-foreground);
+                border: 1px solid var(--vscode-input-border);
+                border-radius: 3px;
+            }
+            .button-container { 
+                margin-top: 20px; 
+                text-align: center; 
+            }
+            button { 
+                padding: 10px 30px; 
+                font-size: 14px;
+                background-color: var(--vscode-button-background);
+                color: var(--vscode-button-foreground);
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            button:hover { 
+                background-color: var(--vscode-button-hoverBackground);
+            }
+        </style>
+    </head>
+    <body>
+        <h2>Add/Remove Datagrams</h2>
+        <div class="info-banner">
+            ℹ️ Datagrams will be saved to <strong>${targetCount}</strong> location(s) in your project
+        </div>
+        
+        <div class="container">
+            <div class="list-container">
+                <h3>Available Datagrams</h3>
+                <input type="text" class="search-box" id="searchBox" placeholder="Search datagrams...">
+                <div id="availableList"></div>
+            </div>
+            <div class="list-container">
+                <h3>Selected Datagrams</h3>
+                <div id="selectedList"></div>
+            </div>
+        </div>
+        
+        <div class="button-container">
+            <button onclick="saveAll()">Save All</button>
+        </div>
+        
+        <script>
+            const vscode = acquireVsCodeApi();
+            let available = ${JSON.stringify(available)};
+            let selected = ${JSON.stringify(selected)};
+            
+            function render() {
+                const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+                const filtered = available.filter(name => 
+                    name.toLowerCase().includes(searchTerm) &&
+                    !selected.find(s => s.name === name)
+                );
+                
+                document.getElementById('availableList').innerHTML = filtered.map(name => 
+                    '<div class="datagram-item" onclick="addToSelected(\'' + name + '\')">' + name + '</div>'
+                ).join('');
+                
+                document.getElementById('selectedList').innerHTML = selected.map(item => 
+                    '<div class="datagram-item">' +
+                    '<span>' + item.name + '</span>' +
+                    '<div class="checkboxes">' +
+                    '<label><input type="checkbox" ' + (item.pub ? 'checked' : '') + 
+                    ' onchange="togglePub(\'' + item.name + '\')"> Pub</label>' +
+                    '<label><input type="checkbox" ' + (item.sub ? 'checked' : '') + 
+                    ' onchange="toggleSub(\'' + item.name + '\')"> Sub</label>' +
+                    '<button onclick="removeFromSelected(\'' + item.name + '\')" style="padding: 2px 8px;">✕</button>' +
+                    '</div></div>'
+                ).join('');
+            }
+            
+            function addToSelected(name) {
+                selected.push({ name, pub: true, sub: false });
+                render();
+            }
+            
+            function removeFromSelected(name) {
+                selected = selected.filter(s => s.name !== name);
+                render();
+            }
+            
+            function togglePub(name) {
+                const item = selected.find(s => s.name === name);
+                if (item) item.pub = !item.pub;
+            }
+            
+            function toggleSub(name) {
+                const item = selected.find(s => s.name === name);
+                if (item) item.sub = !item.sub;
+            }
+            
+            function saveAll() {
+                vscode.postMessage({ command: 'saveAll', datagrams: selected });
+            }
+            
+            document.getElementById('searchBox').addEventListener('input', render);
+            render();
+        </script>
+    </body>
+    </html>`;
+}
+
+/**
+ * Yeni datagram oluştur
+ */
+export async function createNewDatagram(uri: vscode.Uri) {
+    const folderPath = uri.fsPath;
+    
+    try {
+        console.log('🔍 Starting Create New Datagram...');
+        console.log('  Clicked folder:', folderPath);
+
+        // 1. Kullanıcıdan datagram adını al
+        const datagramName = await vscode.window.showInputBox({
+            prompt: 'Enter datagram name',
+            placeHolder: 'e.g., UserCreated, OrderPlaced',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Datagram name cannot be empty';
+                }
+                if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
+                    return 'Invalid datagram name. Use letters, numbers, and underscores only';
+                }
+                return null;
+            }
+        });
+
+        if (!datagramName) {
+            vscode.window.showWarningMessage('Datagram creation cancelled');
+            return;
+        }
+
+        // 2. Çevresel değişkenleri al
+        const datagramTemplatePath = process.env.DATAGRAM || '/workspaces/hexdef/schemas/datagram.xml';
+        const mwName = process.env.MW_NAME || 'Kafka';
+        const datagramDescription = process.env.DATAGRAM_DESCRIPTION || 'datagram';
+        const newDatagramTargetName = process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram';
+
+        console.log('📋 Environment Variables:');
+        console.log('  DATAGRAM:', datagramTemplatePath);
+        console.log('  MW_NAME:', mwName);
+        console.log('  NEW_DATAGRAM_TARGET_NAME:', newDatagramTargetName);
+
+        // 3. Template dosyasını kontrol et
+        if (!fs.existsSync(datagramTemplatePath)) {
+            vscode.window.showErrorMessage(`Template file not found: ${datagramTemplatePath}`);
+            return;
+        }
+
+        // 4. Template dosyasını oku ve değişkenleri değiştir
+        let templateContent = fs.readFileSync(datagramTemplatePath, 'utf-8');
+        let finalContent = templateContent
+            .replace(/\$\{DATAGRAM_NAME\}/g, datagramName)
+            .replace(/\$\{MW_NAME\}/g, mwName)
+            .replace(/\$\{DATAGRAM_DESCRIPTION\}/g, datagramDescription);
+
+        // 5. Marker klasörlerini ara
+        const projectRootDir = findMarkerDirectory(folderPath, '.project_root');
+        const darkMarkerDir = findMarkerDirectory(folderPath, '.project_dark');
+        const grayMarkerDir = findMarkerDirectory(folderPath, '.project_gray');
+
+        console.log('🔍 Marker search results:');
+        console.log('  .project_root found at:', projectRootDir);
+        console.log('  .project_dark found at:', darkMarkerDir);
+        console.log('  .project_gray found at:', grayMarkerDir);
+
+        // 6. Eğer hiçbir marker bulunamadıysa hata ver
+        if (!projectRootDir && !darkMarkerDir && !grayMarkerDir) {
+            vscode.window.showErrorMessage(
+                'Could not find any project markers (.project_root, .project_dark, or .project_gray).\n\n' +
+                'Please create marker directories:\n' +
+                '  mkdir -p <project>/.project_root\n' +
+                '  mkdir -p <project>/src/dark_src/.project_dark\n' +
+                '  mkdir -p <project>/src/<project_name>/.project_gray'
+            );
+            return;
+        }
+
+        const targetDirs: string[] = [];
+
+        // 7. Hedef dizinleri belirle
+        if (projectRootDir) {
+            // .project_root bulundu - hem dark hem gray'e oluştur
+            console.log('✅ .project_root found, will create in both dark and gray');
+            
+            // Dark dizinini bul veya oluştur
+            const darkDir = darkMarkerDir || path.join(projectRootDir, 'src', 'dark_src');
+            if (fs.existsSync(darkDir)) {
+                const darkTargetDir = path.join(darkDir, 'adapters', 'common', mwName, newDatagramTargetName);
+                targetDirs.push(darkTargetDir);
+                console.log('  Dark target:', darkTargetDir);
+            }
+            
+            // Gray dizinini bul
+            if (grayMarkerDir) {
+                const grayTargetDir = path.join(grayMarkerDir, 'adapters', 'common', mwName, newDatagramTargetName);
+                targetDirs.push(grayTargetDir);
+                console.log('  Gray target:', grayTargetDir);
+            } else {
+                // Gray marker yoksa proje adından tahmin et
+                const projectName = path.basename(projectRootDir);
+                const possibleGray = path.join(projectRootDir, 'src', projectName);
+                if (fs.existsSync(possibleGray)) {
+                    const grayTargetDir = path.join(possibleGray, 'adapters', 'common', mwName, newDatagramTargetName);
+                    targetDirs.push(grayTargetDir);
+                    console.log('  Gray target (inferred):', grayTargetDir);
+                }
+            }
+        } else {
+            // .project_root yok - sadece dark veya gray'e oluştur
+            if (darkMarkerDir) {
+                console.log('✅ .project_dark found, creating in dark only');
+                const darkTargetDir = path.join(darkMarkerDir, 'adapters', 'common', mwName, newDatagramTargetName);
+                targetDirs.push(darkTargetDir);
+            } else if (grayMarkerDir) {
+                console.log('✅ .project_gray found, creating in gray only');
+                const grayTargetDir = path.join(grayMarkerDir, 'adapters', 'common', mwName, newDatagramTargetName);
+                targetDirs.push(grayTargetDir);
+            }
+        }
+
+        console.log('🎯 Final target directories:');
+        targetDirs.forEach((dir, idx) => console.log(`  [${idx + 1}] ${dir}`));
+
+        if (targetDirs.length === 0) {
+            vscode.window.showErrorMessage('Could not determine target directories for datagram creation.');
+            return;
+        }
+
+        // 8. Dosyaları oluştur
+        let savedCount = 0;
+        const createdFiles: string[] = [];
+
+        for (const targetDir of targetDirs) {
+            try {
+                if (!fs.existsSync(targetDir)) {
+                    fs.mkdirSync(targetDir, { recursive: true });
+                    console.log(`✅ Created directory: ${targetDir}`);
+                }
+
+                const targetFile = path.join(targetDir, `${datagramName}.xml`);
+                fs.writeFileSync(targetFile, finalContent, 'utf-8');
+                savedCount++;
+                createdFiles.push(targetFile);
+
+                console.log(`✅ Created file: ${targetFile}`);
+            } catch (err) {
+                console.error(`❌ Failed to create in ${targetDir}:`, err);
+            }
+        }
+
+        if (savedCount === 0) {
+            vscode.window.showErrorMessage('Failed to create datagram files!');
+            return;
+        }
+
+        const message = `✅ Datagram "${datagramName}.xml" created in ${savedCount} location(s)`;
+        vscode.window.showInformationMessage(message);
+        console.log(message);
+        createdFiles.forEach(f => console.log(`  • ${f}`));
+
+        if (createdFiles.length > 0 && fs.existsSync(createdFiles[0])) {
+            const doc = await vscode.workspace.openTextDocument(createdFiles[0]);
+            await vscode.window.showTextDocument(doc);
+        }
+
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to create datagram: ${error}`);
+        console.error('❌ Create datagram error:', error);
+    }
+}
+
+/**
+ * Make komutunu çalıştır
+ */
+export async function runMake(uri: vscode.Uri) {
+    const folderPath = uri.fsPath;
+    const projectRoot = findProjectRoot(folderPath);
+    
+    if (!projectRoot) {
+        vscode.window.showErrorMessage('Could not find project root (.project_root marker)');
+        return;
+    }
+    
+    const makefilePath = path.join(projectRoot, 'Makefile');
+    
+    if (!fs.existsSync(makefilePath)) {
+        vscode.window.showErrorMessage(`Makefile not found in ${projectRoot}`);
+        return;
+    }
+    
+    try {
+        vscode.window.showInformationMessage('Running make...');
+        
+        const { stdout, stderr } = await execAsync('make', { cwd: projectRoot });
+        
+        if (stderr) {
+            console.error('Make stderr:', stderr);
+        }
+        
+        vscode.window.showInformationMessage('✅ Make completed successfully');
+        console.log('Make output:', stdout);
+        
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`Make failed: ${error.message}`);
+        console.error('Make error:', error);
+    }
+}
+
+/**
+ * Kodu yeniden oluştur
+ */
+export async function regenerateCode(uri: vscode.Uri) {
+    const folderPath = uri.fsPath;
+    const projectRoot = findProjectRoot(folderPath);
+    
+    if (!projectRoot) {
+        vscode.window.showErrorMessage('Could not find project root (.project_root marker)');
+        return;
+    }
+    
+    try {
+        vscode.window.showInformationMessage('Regenerating code...');
+        
+        // Önce make clean
+        await execAsync('make clean', { cwd: projectRoot });
+        
+        // Sonra make
+        await execAsync('make', { cwd: projectRoot });
+        
+        vscode.window.showInformationMessage('✅ Code regenerated successfully');
+        
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`Regenerate failed: ${error.message}`);
+        console.error('Regenerate error:', error);
+    }
 }

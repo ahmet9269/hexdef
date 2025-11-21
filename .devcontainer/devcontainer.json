@@ -4,16 +4,25 @@
     "remoteEnv": {
         "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
         "SCHEMAS_DIR": "/workspaces/hexdef/schemas",
-        "NEW_DATAGRAM_FILE_PATH": "${SCHEMAS_DIR}/datagram.xml",
+        "DB": "kafka",
+        "NEW_DATAGRAM_FILE_PATH": "/workspaces/hexdef/schemas/datagram.xml",
         "NEW_DATAGRAM_TARGET_NAME": "new_datagram",
-        "DB": "TEST_DB"
+        "MW_NAME": "Kafka",
+        "DATAGRAM_SAVE_DIR": "adapters/common",
+        "DATAGRAM": "/workspaces/hexdef/schemas/datagram.xml"
     },
     "customizations": {
         "vscode": {
             "settings": {
                 "terminal.integrated.env.linux": {
                     "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
-                    "DB": "TEST_DB"
+                    "SCHEMAS_DIR": "/workspaces/hexdef/schemas",
+                    "DB": "kafka",
+                    "NEW_DATAGRAM_FILE_PATH": "/workspaces/hexdef/schemas/datagram.xml",
+                    "NEW_DATAGRAM_TARGET_NAME": "new_datagram",
+                    "MW_NAME": "Kafka",
+                    "DATAGRAM_SAVE_DIR": "adapters/common",
+                    "DATAGRAM": "/workspaces/hexdef/schemas/datagram.xml"
                 }
             }
         }

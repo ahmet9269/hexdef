@@ -1,9 +1,9 @@
 <?xml version="1.0" standalone="no"?>
-<!DOCTYPE ${DATAGRAM_DESCRIPTION} >
+<!DOCTYPE datagram >
 
-<${MW_NAME} name="${DATAGRAM_NAME}" >
+<Kafka name="dene1" >
 <definition>
     <field name="dummy" type="long" />
 </definition>
 <keys></keys>
-</${MW_NAME}>
+</Kafka>

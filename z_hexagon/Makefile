@@ -1,8 +1,8 @@
-# Makefile for b_hexagon
-# Pseudo App Name: b_hex
+# Makefile for z_hexagon
+# Pseudo App Name: z_hex
 
-PROJECT_NAME = b_hexagon
-PSEUDO_APP_NAME = b_hex
+PROJECT_NAME = z_hexagon
+PSEUDO_APP_NAME = z_hex
 
 # Directories
 SRC_DIR = src
@@ -20,7 +20,7 @@ all: build
 
 # Build all components
 build:
-	@echo "Building b_hexagon..."
+	@echo "Building z_hexagon..."
 	@cd ${SRC_DIR}/app && $(MAKE)
 	@cd ${SRC_DIR}/dark && $(MAKE)
 	@cd ${SRC_DIR}/white && $(MAKE)

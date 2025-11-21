@@ -16,8 +16,8 @@ export async function createMultipleProjects(uri?: vscode.Uri) {
             if (!value || value.trim().length === 0) {
                 return 'Project name cannot be empty';
             }
-            if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(value)) {
-                return 'Project name must start with a letter and contain only letters, numbers, hyphens, and underscores';
+            if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(value)) {
+                return 'Project name must start with a letter and contain only letters, numbers, and underscores';
             }
             return null;
         }
@@ -46,92 +46,106 @@ export async function createMultipleProjects(uri?: vscode.Uri) {
         return;
     }
 
-    // Eğer uri verilmişse (sağ tık ile çağrıldıysa) onu kullan
+    // ✅ KULLANICIDAN PATH SOR
     let targetPath: string;
-    
-    if (uri && uri.fsPath) {
-        targetPath = uri.fsPath;
-    } else {
-        // Proje oluşturulacak dizini seç
-        const folderUri = await vscode.window.showOpenDialog({
-            canSelectFiles: false,
-            canSelectFolders: true,
-            canSelectMany: false,
-            openLabel: 'Select project location'
-        });
 
-        if (!folderUri || folderUri.length === 0) {
+    if (uri && uri.fsPath) {
+        // Sağ tık ile çağrıldıysa, o klasörü varsayılan olarak göster
+        const stat = fs.statSync(uri.fsPath);
+        targetPath = stat.isDirectory() ? uri.fsPath : path.dirname(uri.fsPath);
+    } else {
+        // Workspace root'u varsayılan olarak al
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('No workspace folder open');
             return;
         }
-        
-        targetPath = folderUri[0].fsPath;
+        targetPath = workspaceFolders[0].uri.fsPath;
     }
+
+    // ✅ Kullanıcıya folder picker göster
+    const selectedUri = await vscode.window.showOpenDialog({
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+        defaultUri: vscode.Uri.file(targetPath),
+        openLabel: 'Select Project Location',
+        title: `Select where to create "${projectName}"`
+    });
+
+    if (!selectedUri || selectedUri.length === 0) {
+        vscode.window.showWarningMessage('No folder selected. Project creation cancelled.');
+        return;
+    }
+
+    targetPath = selectedUri[0].fsPath;
 
     const baseProjectPath = path.join(targetPath, projectName);
 
     // Ana proje dizini zaten varsa uyar
     if (fs.existsSync(baseProjectPath)) {
         const overwrite = await vscode.window.showWarningMessage(
-            `"${projectName}" folder already exists! Do you want to overwrite it?`,
+            `Project "${projectName}" already exists. Overwrite?`,
             'Yes', 'No'
         );
         
         if (overwrite !== 'Yes') {
             return;
         }
+        
+        // Mevcut projeyi sil
+        fs.rmSync(baseProjectPath, { recursive: true, force: true });
     }
 
     try {
-        // Ana dizini oluştur
-        fs.mkdirSync(baseProjectPath, { recursive: true });
+        // Environment variables'ı al
+        const db = process.env.DB || 'postgres';
+        const schemasDir = process.env.SCHEMAS_DIR || path.join(__dirname, '../../schemas');
+        const newDatagramTargetName = process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram';
+        const mwName = process.env.MW_NAME || 'Kafka'; // ✅ EKLENEN
 
-        // Değişkenler objesi oluştur
+        console.log('🔍 Environment Variables:');
+        console.log('  DB:', db);
+        console.log('  SCHEMAS_DIR:', schemasDir);
+        console.log('  NEW_DATAGRAM_TARGET_NAME:', newDatagramTargetName);
+        console.log('  MW_NAME:', mwName); // ✅ EKLENEN
+
+        // ✅ Variables objesini oluştur
         const variables = {
             PROJECT_NAME: projectName,
             PSEUDO_APP_NAME: pseudoAppName,
-            DB: process.env.DB || 'TEST_DB',
-            NEW_DATAGRAM_TARGET_NAME: process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram',
-            SCHEMAS_DIR: process.env.SCHEMAS_DIR || '/workspaces/hexdef/schemas'
+            DB: db,
+            SCHEMAS_DIR: schemasDir,
+            NEW_DATAGRAM_TARGET_NAME: newDatagramTargetName,
+            MW_NAME: mwName // ✅ EKLENEN
         };
 
-        console.log('Variables:', variables);
+        console.log('📋 All Variables:', variables);
 
-        // Sadece app template'ini kullan
-        const appTemplate = getTemplates('app');
+        // Template'i yükle
+        const templatePath = path.join(schemasDir, 'app.json');
         
-        await createProjectStructure(baseProjectPath, appTemplate, variables);
+        if (!fs.existsSync(templatePath)) {
+            vscode.window.showErrorMessage(`Template file not found: ${templatePath}`);
+            return;
+        }
+
+        const templateContent = fs.readFileSync(templatePath, 'utf-8');
+        const template = JSON.parse(templateContent) as ProjectTemplate;
+
+        // Proje yapısını oluştur
+        await createProjectStructure(baseProjectPath, template, variables);
 
         vscode.window.showInformationMessage(
-            `Project "${projectName}" (${pseudoAppName}) created successfully!`
+            `✅ Project "${projectName}" created successfully!`
         );
 
-        // Makefile'ı otomatik olarak arka planda çalıştır
-        const makefilePath = path.join(baseProjectPath, 'Makefile');
-        
-        if (fs.existsSync(makefilePath)) {
-            // Arka planda make çalıştır
-            runMakeInBackground(baseProjectPath, projectName);
-        }
-
-        // İlk dosyayı aç (varsa main.cpp veya başka bir dosya)
-        const possibleFiles = [
-            'main.cpp',
-            'src/main.cpp',
-            'README.md'
-        ];
-        
-        for (const file of possibleFiles) {
-            const filePath = path.join(baseProjectPath, file);
-            if (fs.existsSync(filePath)) {
-                const document = await vscode.workspace.openTextDocument(filePath);
-                await vscode.window.showTextDocument(document);
-                break;
-            }
-        }
+        // Make'i background'da çalıştır
+        runMakeInBackground(baseProjectPath, projectName);
 
     } catch (error) {
-        vscode.window.showErrorMessage(`Error creating project: ${error}`);
-        console.error('Project creation error:', error);
+        vscode.window.showErrorMessage(`Failed to create project: ${error}`);
+        console.error('❌ Project creation error:', error);
     }
 }
 
@@ -189,56 +203,206 @@ async function createProjectStructure(
     // Ana dizini oluştur
     fs.mkdirSync(projectPath, { recursive: true });
 
-    // Template'deki tüm dosya ve klasörleri oluştur
-    for (const item of template.structure) {
-        // Path'i değişkenlerle değiştir
-        let itemPath = replaceVariables(item.path, variables);
-        
-        const fullPath = path.join(projectPath, itemPath);
+    console.log('🏗️  Creating project structure...');
+    console.log('📋 Variables:', variables); // ✅ Debug: Variables'ı yazdır
 
-        if (item.type === 'directory') {
-            fs.mkdirSync(fullPath, { recursive: true });
-        } else if (item.type === 'file') {
-            const dir = path.dirname(fullPath);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
+    for (const item of template.structure) {
+        try {
+            // ✅ item.path her zaman değişkenlerle değiştirilmeli
+            let itemPath = item.path || '';
             
-            // Content'i al
-            let content = item.content || '';
+            // Path'teki değişkenleri değiştir
+            itemPath = replaceVariables(itemPath, variables);
             
-            // Önce değişkenleri değiştir (content bir dosya yolu olabilir)
-            const processedContent = replaceVariables(content, variables);
-            
-            // Eğer işlenmiş content bir dosya yolu ise, dosyayı oku
-            if (processedContent.startsWith('/') || processedContent.includes('schemas/')) {
-                if (fs.existsSync(processedContent)) {
-                    console.log(`Reading template file: ${processedContent}`);
-                    content = fs.readFileSync(processedContent, 'utf-8');
-                    // Okunan dosya içeriğindeki değişkenleri de değiştir
-                    content = replaceVariables(content, variables);
+            const fullPath = path.join(projectPath, itemPath);
+
+            console.log(`  Processing: ${item.type || 'unknown'} - ${itemPath}`);
+
+            if (item.type === 'directory') {
+                // Klasör oluştur
+                if (!fs.existsSync(fullPath)) {
+                    fs.mkdirSync(fullPath, { recursive: true });
+                    console.log(`    ✅ Created directory: ${itemPath}`);
                 } else {
-                    console.warn(`Template file not found: ${processedContent}, using as-is`);
-                    content = processedContent;
+                    console.log(`    ⏭️  Directory exists: ${itemPath}`);
                 }
-            } else {
-                // Normal içerik, değişkenleri değiştir
-                content = processedContent;
+            } else if (item.type === 'file') {
+                // Dosya oluştur
+                const dir = path.dirname(fullPath);
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir, { recursive: true });
+                }
+
+                let content = item.content || '';
+
+                // ✅ Content'teki değişkenleri önce değiştir
+                content = replaceVariables(content, variables);
+
+                // Eğer content bir dosya yolu ise (template dosyası)
+                if (fs.existsSync(content)) {
+                    const templateContent = fs.readFileSync(content, 'utf-8');
+                    // ✅ Template dosyasının içeriğindeki değişkenleri de değiştir
+                    content = replaceVariables(templateContent, variables);
+                    console.log(`    📄 Loaded template from: ${content}`);
+                }
+
+                // Dosyayı yaz
+                fs.writeFileSync(fullPath, content, 'utf-8');
+                console.log(`    ✅ Created file: ${itemPath}`);
             }
-            
-            fs.writeFileSync(fullPath, content);
+        } catch (error) {
+            console.error(`    ❌ Error processing ${item.path}:`, error);
         }
     }
+
+    console.log('✅ Project structure created successfully');
 }
 
-function replaceVariables(text: string, variables: { [key: string]: string }): string {
-    let result = text;
+function replaceVariables(content: string, variables: Record<string, string>): string {
+    let result = content;
     
-    // ${VAR_NAME} formatındaki tüm değişkenleri değiştir
     for (const [key, value] of Object.entries(variables)) {
-        const pattern = new RegExp(`\\$\\{${key}\\}`, 'g');
-        result = result.replace(pattern, value);
+        const regex = new RegExp(`\\$\\{${key}\\}`, 'g');
+        result = result.replace(regex, value);
     }
     
     return result;
+}
+
+export async function createMultiScaffoldProject(uri: vscode.Uri) {
+    const folderPath = uri.fsPath;
+
+    // Get project name
+    const projectName = await vscode.window.showInputBox({
+        prompt: 'Enter project name',
+        placeHolder: 'e.g., MyHexagonalApp',
+        validateInput: (value) => {
+            if (!value || value.trim().length === 0) {
+                return 'Project name cannot be empty';
+            }
+            if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(value)) {
+                return 'Project name must start with a letter and contain only letters, numbers, and underscores';
+            }
+            return null;
+        }
+    });
+
+    if (!projectName) {
+        return;
+    }
+
+    // Get pseudo app name
+    const pseudoAppName = await vscode.window.showInputBox({
+        prompt: 'Enter pseudo app name',
+        placeHolder: 'e.g., my_app',
+        validateInput: (value) => {
+            if (!value || value.trim().length === 0) {
+                return 'Pseudo app name cannot be empty';
+            }
+            if (!/^[a-z][a-z0-9_]*$/.test(value)) {
+                return 'Pseudo app name must start with lowercase letter and contain only lowercase letters, numbers, and underscores';
+            }
+            return null;
+        }
+    });
+
+    if (!pseudoAppName) {
+        return;
+    }
+
+    // Get environment variables
+    const db = process.env.DB || 'postgres';
+    const schemasDir = process.env.SCHEMAS_DIR || path.join(__dirname, '../../schemas');
+    const newDatagramTargetName = process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram';
+    const mwName = process.env.MW_NAME || 'Kafka'; // ✅ MW_NAME'i al
+
+    console.log('🔍 Environment Variables:');
+    console.log('  DB:', db);
+    console.log('  SCHEMAS_DIR:', schemasDir);
+    console.log('  NEW_DATAGRAM_TARGET_NAME:', newDatagramTargetName);
+    console.log('  MW_NAME:', mwName); // ✅ Log ekle
+
+    // Create variables object
+    const variables = {
+        PROJECT_NAME: projectName,
+        PSEUDO_APP_NAME: pseudoAppName,
+        DB: db,
+        SCHEMAS_DIR: schemasDir,
+        NEW_DATAGRAM_TARGET_NAME: newDatagramTargetName,
+        MW_NAME: mwName // ✅ MW_NAME'i ekle
+    };
+
+    console.log('📋 Variables:', variables);
+
+    // Load template
+    const templatePath = path.join(schemasDir, 'app.json');
+    
+    if (!fs.existsSync(templatePath)) {
+        vscode.window.showErrorMessage(`Template file not found: ${templatePath}`);
+        return;
+    }
+
+    const templateContent = fs.readFileSync(templatePath, 'utf-8');
+    const template = JSON.parse(templateContent);
+
+    // Create project directory
+    const projectPath = path.join(folderPath, projectName);
+    
+    if (fs.existsSync(projectPath)) {
+        const overwrite = await vscode.window.showWarningMessage(
+            `Project directory "${projectName}" already exists. Overwrite?`,
+            'Yes', 'No'
+        );
+        
+        if (overwrite !== 'Yes') {
+            return;
+        }
+    }
+
+    try {
+        fs.mkdirSync(projectPath, { recursive: true });
+        console.log(`✅ Created project directory: ${projectPath}`);
+
+        // Process template structure
+        for (const item of template.structure) {
+            const itemPath = replaceVariables(item.path, variables);
+            const fullPath = path.join(projectPath, itemPath);
+
+            if (item.type === 'directory') {
+                fs.mkdirSync(fullPath, { recursive: true });
+                console.log(`✅ Created directory: ${itemPath}`);
+            } else if (item.type === 'file') {
+                const dir = path.dirname(fullPath);
+                fs.mkdirSync(dir, { recursive: true });
+
+                let content = item.content || '';
+                
+                // Check if content is a file path (starts with ${SCHEMAS_DIR})
+                if (content.startsWith('${SCHEMAS_DIR}')) {
+                    const templateFilePath = replaceVariables(content, variables);
+                    
+                    if (fs.existsSync(templateFilePath)) {
+                        content = fs.readFileSync(templateFilePath, 'utf-8');
+                    } else {
+                        console.warn(`⚠️ Template file not found: ${templateFilePath}`);
+                        content = `# File from template: ${templateFilePath}\n`;
+                    }
+                }
+
+                // Replace variables in content
+                content = replaceVariables(content, variables);
+
+                fs.writeFileSync(fullPath, content, 'utf-8');
+                console.log(`✅ Created file: ${itemPath}`);
+            }
+        }
+
+        vscode.window.showInformationMessage(
+            `✅ Project "${projectName}" created successfully!`
+        );
+
+    } catch (error) {
+        vscode.window.showErrorMessage(`Failed to create project: ${error}`);
+        console.error('❌ Project creation error:', error);
+    }
 }

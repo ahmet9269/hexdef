@@ -8,6 +8,10 @@
     },
     {
       "type": "directory",
+      "path": ".project_root"
+    },
+    {
+      "type": "directory",
       "path": "bin"
     },
     {
@@ -40,7 +44,10 @@
 
 
 
-
+    {
+      "type": "directory",
+      "path": "src/${PROJECT_NAME}/.project_gray"
+    },
     {
       "type": "directory",
       "path": "src/${PROJECT_NAME}/bin"
@@ -75,7 +82,7 @@
     },
     {
       "type": "directory",
-      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/common/${NEW_DATAGRAM_TARGET_NAME}"
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/common/${MW_NAME}/${NEW_DATAGRAM_TARGET_NAME}"
     },
     {
       "type": "directory",
@@ -120,7 +127,10 @@
 
 
 
-
+    {
+      "type": "directory",
+      "path": "src/dark_src/.project_dark"
+    },
     {
       "type": "directory",
       "path": "src/dark_src/bin"
@@ -155,7 +165,7 @@
     },
     {
       "type": "directory",
-      "path": "src/dark_src/src/${PROJECT_NAME}/adapters/common/${NEW_DATAGRAM_TARGET_NAME}"
+      "path": "src/dark_src/src/${PROJECT_NAME}/adapters/common/${MW_NAME}/${NEW_DATAGRAM_TARGET_NAME}"
     },
     {
       "type": "directory",
@@ -197,7 +207,10 @@
 
 
 
-   
+    {
+      "type": "directory",
+      "path": "src/white_src/.project_white"
+    },
     {
       "type": "directory",
       "path": "src/white_src/lib/include"

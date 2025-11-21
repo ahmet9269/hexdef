@@ -1,6 +1,6 @@
-# b_hexagon
+# z_hexagon
 
-**Pseudo App Name:** b_hex
+**Pseudo App Name:** z_hex
 **Database:** kafka
 
 Hexagonal Architecture project with multiple components.
@@ -8,7 +8,7 @@ Hexagonal Architecture project with multiple components.
 ## Project Structure
 
 ```
-b_hexagon/
+z_hexagon/
 ├── src/           # Source code
 │   ├── app/       # Application layer
 │   ├── dark/      # Dark theme component
