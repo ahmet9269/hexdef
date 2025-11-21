@@ -141,9 +141,6 @@ export async function createNewDatagram(uri?: vscode.Uri) {
             return;
         }
 
-        // PROJECT_NAME'i bul (proje klasör adından)
-        const projectName = path.basename(projectRoot);
-        
         // Template'i yükle
         const schemasDir = process.env.SCHEMAS_DIR || path.join(__dirname, '../../schemas');
         const datagramTemplatePath = path.join(schemasDir, 'datagram.xml');
@@ -158,55 +155,67 @@ export async function createNewDatagram(uri?: vscode.Uri) {
         // Değişkenleri değiştir
         datagramContent = datagramContent.replace(/\${DATAGRAM_NAME}/g, datagramName);
         
-        // Kayıt yerlerini belirle
+        // Çevresel değişkenler
         const mwName = process.env.MW_NAME || 'Kafka';
         const newDatagramTarget = process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram';
         
-        // Gray component path (doğru yapı)
-        const grayPath = path.join(
-            projectRoot,
-            'src',
-            projectName,
-            'src',
-            projectName,
-            'adapters',
-            'common',
-            mwName,
-            newDatagramTarget,
-            `${datagramName}.xml`
-        );
+        // adapters/common/${MW_NAME}/${NEW_DATAGRAM_TARGET_NAME} dizinlerini bul
+        console.log(`🔍 Searching for pattern: **/adapters/common/${mwName}/${newDatagramTarget}`);
+        console.log(`📁 Starting from: ${projectRoot}`);
         
-        // Dark component path (doğru yapı)
-        const darkPath = path.join(
-            projectRoot,
-            'src',
-            'dark_src',
-            'src',
-            projectName,
-            'adapters',
-            'common',
-            mwName,
-            newDatagramTarget,
-            `${datagramName}.xml`
-        );
+        // Glob pattern ile dizinleri bul
+        const { execSync } = require('child_process');
+        const findCommand = `find "${projectRoot}" -type d -path "*/adapters/common/${mwName}/${newDatagramTarget}"`;
         
-        console.log('Creating datagram files:');
-        console.log('Gray path:', grayPath);
-        console.log('Dark path:', darkPath);
+        let targetDirs: string[] = [];
+        try {
+            const output = execSync(findCommand, { encoding: 'utf-8' });
+            targetDirs = output.trim().split('\n').filter((dir: string) => dir.length > 0);
+        } catch (error) {
+            console.log('No existing target directories found, will create them');
+        }
         
-        // Dosyaları kaydet
-        fs.mkdirSync(path.dirname(grayPath), { recursive: true });
-        fs.writeFileSync(grayPath, datagramContent, 'utf-8');
+        // Eğer dizin bulunamazsa, standart konumlarda oluştur
+        if (targetDirs.length === 0) {
+            const projectName = path.basename(projectRoot);
+            
+            targetDirs = [
+                path.join(projectRoot, 'src', projectName, 'src', projectName, 'adapters', 'common', mwName, newDatagramTarget),
+                path.join(projectRoot, 'src', 'dark_src', 'src', projectName, 'adapters', 'common', mwName, newDatagramTarget)
+            ];
+            
+            console.log('⚠️  No existing directories found, using default paths');
+        }
         
-        fs.mkdirSync(path.dirname(darkPath), { recursive: true });
-        fs.writeFileSync(darkPath, datagramContent, 'utf-8');
+        console.log(`📂 Found ${targetDirs.length} target directories:`);
+        targetDirs.forEach((dir: string) => console.log(`   - ${dir}`));
         
-        // Dosyayı aç
-        const document = await vscode.workspace.openTextDocument(grayPath);
-        await vscode.window.showTextDocument(document);
+        // Her dizine dosyayı oluştur
+        const createdFiles: string[] = [];
         
+        for (const targetDir of targetDirs) {
+            const datagramFilePath = path.join(targetDir, `${datagramName}.xml`);
+            
+            // Dizini oluştur (yoksa)
+            fs.mkdirSync(targetDir, { recursive: true });
+            
+            // Dosyayı yaz
+            fs.writeFileSync(datagramFilePath, datagramContent, 'utf-8');
+            createdFiles.push(datagramFilePath);
+            
+            console.log(`✅ Created: ${datagramFilePath}`);
+        }
+        
+        // İlk dosyayı aç
+        if (createdFiles.length > 0) {
+            const document = await vscode.workspace.openTextDocument(createdFiles[0]);
+            await vscode.window.showTextDocument(document);
+        }
+        
+        // Başarı mesajı
         vscode.window.showInformationMessage(
-            `Datagram '${datagramName}' created successfully!\n\nGray: ${grayPath}\nDark: ${darkPath}`
+            `✅ Datagram '${datagramName}' created in ${createdFiles.length} location(s):\n\n${createdFiles.map((f: string) => `• ${f}`).join('\n')}`,
+            { modal: false }
         );
 
     } catch (error) {
@@ -218,66 +227,106 @@ export async function createNewDatagram(uri?: vscode.Uri) {
 /**
  * Make komutunu çalıştır
  */
-export async function runMake(uri: vscode.Uri) {
-    const folderPath = uri.fsPath;
-    const projectRoot = findProjectRoot(folderPath);
-    
-    if (!projectRoot) {
-        vscode.window.showErrorMessage('Could not find project root (.project_root marker)');
-        return;
-    }
-    
-    const makefilePath = path.join(projectRoot, 'Makefile');
-    
-    if (!fs.existsSync(makefilePath)) {
-        vscode.window.showErrorMessage(`Makefile not found in ${projectRoot}`);
-        return;
-    }
-    
+export async function runMake(uri?: vscode.Uri) {
     try {
-        vscode.window.showInformationMessage('Running make...');
+        // Uri'yi path'e çevir
+        const startPath = uri?.fsPath || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         
-        const { stdout, stderr } = await execAsync('make', { cwd: projectRoot });
-        
-        if (stderr) {
-            console.error('Make stderr:', stderr);
+        if (!startPath) {
+            vscode.window.showErrorMessage('No folder selected or workspace opened!');
+            return;
         }
-        
-        vscode.window.showInformationMessage('✅ Make completed successfully');
-        console.log('Make output:', stdout);
-        
-    } catch (error: any) {
-        vscode.window.showErrorMessage(`Make failed: ${error.message}`);
-        console.error('Make error:', error);
+
+        // Proje root'unu bul (.project_root marker)
+        const projectRoot = await findProjectRoot(startPath);
+        if (!projectRoot) {
+            vscode.window.showErrorMessage('Project root (.project_root marker) not found!');
+            return;
+        }
+
+        // Makefile var mı kontrol et
+        const makefilePath = path.join(projectRoot, 'Makefile');
+        if (!fs.existsSync(makefilePath)) {
+            vscode.window.showErrorMessage(`Makefile not found in ${projectRoot}`);
+            return;
+        }
+
+        console.log(`🔨 Running make in: ${projectRoot}`);
+
+        // Terminal oluştur ve make komutunu çalıştır
+        const terminal = vscode.window.createTerminal({
+            name: `Make: ${path.basename(projectRoot)}`,
+            cwd: projectRoot
+        });
+
+        terminal.show();
+        terminal.sendText('make');
+
+        vscode.window.showInformationMessage(
+            `Running make in ${path.basename(projectRoot)}...`
+        );
+
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error running make: ${error}`);
+        console.error('Run make error:', error);
     }
 }
 
 /**
  * Kodu yeniden oluştur
  */
-export async function regenerateCode(uri: vscode.Uri) {
-    const folderPath = uri.fsPath;
-    const projectRoot = findProjectRoot(folderPath);
-    
-    if (!projectRoot) {
-        vscode.window.showErrorMessage('Could not find project root (.project_root marker)');
-        return;
-    }
-    
+export async function regenerateCode(uri?: vscode.Uri) {
     try {
-        vscode.window.showInformationMessage('Regenerating code...');
+        // Uri'yi path'e çevir
+        const startPath = uri?.fsPath || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         
-        // Önce make clean
-        await execAsync('make clean', { cwd: projectRoot });
+        if (!startPath) {
+            vscode.window.showErrorMessage('No folder selected or workspace opened!');
+            return;
+        }
+
+        // Proje root'unu bul
+        const projectRoot = findProjectRoot(startPath);
+        if (!projectRoot) {
+            vscode.window.showErrorMessage('Project root (.project_root marker) not found!');
+            return;
+        }
+
+        // dark_src dizinini bul
+        const darkSrcPath = path.join(projectRoot, 'src', 'dark_src');
         
-        // Sonra make
-        await execAsync('make', { cwd: projectRoot });
+        if (!fs.existsSync(darkSrcPath)) {
+            vscode.window.showErrorMessage(`dark_src directory not found in ${projectRoot}`);
+            return;
+        }
+
+        // dark_src altındaki Makefile'ı kontrol et
+        const makefilePath = path.join(darkSrcPath, 'Makefile');
+        if (!fs.existsSync(makefilePath)) {
+            vscode.window.showErrorMessage(`Makefile not found in ${darkSrcPath}`);
+            return;
+        }
+
+        console.log(`🔄 Regenerating code in: ${darkSrcPath}`);
+
+        // Terminal oluştur
+        const terminal = vscode.window.createTerminal({
+            name: `Regenerate Code: ${path.basename(projectRoot)}`,
+            cwd: darkSrcPath
+        });
+
+        terminal.show();
         
-        vscode.window.showInformationMessage('✅ Code regenerated successfully');
-        
-    } catch (error: any) {
-        vscode.window.showErrorMessage(`Regenerate failed: ${error.message}`);
-        console.error('Regenerate error:', error);
+        // make regenerate_code çalıştır
+        terminal.sendText('make regenerate_code');
+
+        vscode.window.showInformationMessage(
+            `Regenerating code in ${path.basename(projectRoot)}/src/dark_src...`
+        );
+
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error regenerating code: ${error}`);
+        console.error('Regenerate code error:', error);
     }
 }
 
