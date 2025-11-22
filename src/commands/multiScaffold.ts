@@ -141,41 +141,26 @@ export async function createMultipleProjects(uri?: vscode.Uri) {
                 `Project '${projectName}' created successfully!`
             );
 
-            // ✅ Progress bar ile make çalıştır
-            await vscode.window.withProgress({
-                location: vscode.ProgressLocation.Notification,
-                title: `Preparing ${projectName}...`,
-                cancellable: false
-            }, async (progress) => {
-                // 2 saniye bekle
-                progress.report({ message: 'Waiting for project initialization...' });
-                await new Promise(resolve => setTimeout(resolve, 2000));
+            // ✅ OTOMATİK MAKE ÇALIŞTIRMA
+            const makefilePath = path.join(baseProjectPath, 'Makefile');
+            
+            if (fs.existsSync(makefilePath)) {
+                console.log(`🔨 Auto-running make in: ${baseProjectPath}`);
                 
-                // Makefile kontrolü
-                const makefilePath = path.join(targetPath, 'Makefile');
+                // Kullanıcıya bilgi ver
+                vscode.window.showInformationMessage(`Building project ${projectName}...`);
+
+                // Terminal oluştur ve make çalıştır
+                const terminal = vscode.window.createTerminal({
+                    name: `Build: ${projectName}`,
+                    cwd: baseProjectPath
+                });
                 
-                if (fs.existsSync(makefilePath)) {
-                    progress.report({ message: 'Running make...' });
-                    
-                    console.log(`🔨 Auto-running make in: ${targetPath}`);
-                    
-                    const terminal = vscode.window.createTerminal({
-                        name: `Build: ${projectName}`,
-                        cwd: targetPath
-                    });
-                    
-                    terminal.show();
-                    terminal.sendText('make');
-                    
-                    vscode.window.showInformationMessage(
-                        `✅ ${projectName} build started!`
-                    );
-                } else {
-                    vscode.window.showWarningMessage(
-                        `⚠️  Makefile not found in ${projectName}`
-                    );
-                }
-            });
+                terminal.show();
+                terminal.sendText('make');
+            } else {
+                console.warn(`⚠️ Makefile not found in ${baseProjectPath}, skipping auto-build.`);
+            }
 
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to create project: ${error}`);
