@@ -134,33 +134,50 @@ export async function createMultipleProjects(uri?: vscode.Uri) {
             const templateContent = fs.readFileSync(templatePath, 'utf-8');
             const template = JSON.parse(templateContent) as ProjectTemplate;
 
-            // Proje yapısını oluştur
-            await createProjectStructure(baseProjectPath, template, variables);
+            // ✅ Progress Bar ile Proje Oluşturma (Show Amaçlı)
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification, // VS Code API sınırlaması: Ekranın ortasında progress bar yok.
+                title: `Creating HexArch Project: ${projectName}`,
+                cancellable: false
+            }, async (progress) => {
+                // Başlangıç
+                progress.report({ increment: 0, message: 'Initializing project structure...' });
+                
+                // Gerçek işlem: Proje yapısını oluştur
+                await createProjectStructure(baseProjectPath, template, variables);
 
+                // ✅ DOSYALAR OLUŞTU, HEMEN MAKE ÇALIŞTIR (Progress bar bitmeden)
+                const makefilePath = path.join(baseProjectPath, 'Makefile');
+                if (fs.existsSync(makefilePath)) {
+                    console.log(`🔨 Auto-running make in: ${baseProjectPath}`);
+                    
+                    // Terminal oluştur ve make çalıştır
+                    const terminal = vscode.window.createTerminal({
+                        name: `Build: ${projectName}`,
+                        cwd: baseProjectPath
+                    });
+                    
+                    terminal.show();
+                    terminal.sendText('make');
+                }
+                
+                // Show amaçlı bekleme adımları (Toplam ~3 saniye)
+                progress.report({ increment: 30, message: 'Applying templates and variables...' });
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                progress.report({ increment: 60, message: 'Configuring middleware settings...' });
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                progress.report({ increment: 90, message: 'Finalizing project setup...' });
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            });
+
+            // ✅ Ekranın ortasında MODAL mesaj göster
             vscode.window.showInformationMessage(
-                `Project '${projectName}' created successfully!`
+                `Project '${projectName}' created successfully!`,
+                { modal: true, detail: 'The project structure has been generated and the build process has started in the terminal.' },
+                'OK'
             );
-
-            // ✅ OTOMATİK MAKE ÇALIŞTIRMA
-            const makefilePath = path.join(baseProjectPath, 'Makefile');
-            
-            if (fs.existsSync(makefilePath)) {
-                console.log(`🔨 Auto-running make in: ${baseProjectPath}`);
-                
-                // Kullanıcıya bilgi ver
-                vscode.window.showInformationMessage(`Building project ${projectName}...`);
-
-                // Terminal oluştur ve make çalıştır
-                const terminal = vscode.window.createTerminal({
-                    name: `Build: ${projectName}`,
-                    cwd: baseProjectPath
-                });
-                
-                terminal.show();
-                terminal.sendText('make');
-            } else {
-                console.warn(`⚠️ Makefile not found in ${baseProjectPath}, skipping auto-build.`);
-            }
 
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to create project: ${error}`);
