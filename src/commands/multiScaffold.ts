@@ -8,144 +8,181 @@ import { ProjectTemplate, getTemplates } from '../templates';
 const execAsync = promisify(exec);
 
 export async function createMultipleProjects(uri?: vscode.Uri) {
-    // Kullanıcıdan proje adını al
-    const projectName = await vscode.window.showInputBox({
-        prompt: 'Enter project name',
-        placeHolder: 'e.g., UserService',
-        validateInput: (value) => {
-            if (!value || value.trim().length === 0) {
-                return 'Project name cannot be empty';
-            }
-            if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(value)) {
-                return 'Project name must start with a letter and contain only letters, numbers, and underscores';
-            }
-            return null;
-        }
-    });
-
-    if (!projectName) {
-        return;
-    }
-
-    // Pseudo App Name al
-    const pseudoAppName = await vscode.window.showInputBox({
-        prompt: 'Enter pseudo app name',
-        placeHolder: 'e.g., hex_c, user_svc',
-        validateInput: (value) => {
-            if (!value || value.trim().length === 0) {
-                return 'Pseudo app name cannot be empty';
-            }
-            if (!/^[a-z][a-z0-9_]*$/.test(value)) {
-                return 'Pseudo app name must start with lowercase letter and contain only lowercase letters, numbers, and underscores';
-            }
-            return null;
-        }
-    });
-
-    if (!pseudoAppName) {
-        return;
-    }
-
-    // ✅ KULLANICIDAN PATH SOR
-    let targetPath: string;
-
-    if (uri && uri.fsPath) {
-        // Sağ tık ile çağrıldıysa, o klasörü varsayılan olarak göster
-        const stat = fs.statSync(uri.fsPath);
-        targetPath = stat.isDirectory() ? uri.fsPath : path.dirname(uri.fsPath);
-    } else {
-        // Workspace root'u varsayılan olarak al
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-            vscode.window.showErrorMessage('No workspace folder open');
-            return;
-        }
-        targetPath = workspaceFolders[0].uri.fsPath;
-    }
-
-    // ✅ Kullanıcıya folder picker göster
-    const selectedUri = await vscode.window.showOpenDialog({
-        canSelectFiles: false,
-        canSelectFolders: true,
-        canSelectMany: false,
-        defaultUri: vscode.Uri.file(targetPath),
-        openLabel: 'Select Project Location',
-        title: `Select where to create "${projectName}"`
-    });
-
-    if (!selectedUri || selectedUri.length === 0) {
-        vscode.window.showWarningMessage('No folder selected. Project creation cancelled.');
-        return;
-    }
-
-    targetPath = selectedUri[0].fsPath;
-
-    const baseProjectPath = path.join(targetPath, projectName);
-
-    // Ana proje dizini zaten varsa uyar
-    if (fs.existsSync(baseProjectPath)) {
-        const overwrite = await vscode.window.showWarningMessage(
-            `Project "${projectName}" already exists. Overwrite?`,
-            'Yes', 'No'
-        );
-        
-        if (overwrite !== 'Yes') {
-            return;
-        }
-        
-        // Mevcut projeyi sil
-        fs.rmSync(baseProjectPath, { recursive: true, force: true });
-    }
-
     try {
-        // Environment variables'ı al
-        const db = process.env.DB || 'postgres';
-        const schemasDir = process.env.SCHEMAS_DIR || path.join(__dirname, '../../schemas');
-        const newDatagramTargetName = process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram';
-        const mwName = process.env.MW_NAME || 'Kafka'; // ✅ EKLENEN
+        // Kullanıcıdan proje adını al
+        const projectName = await vscode.window.showInputBox({
+            prompt: 'Enter project name',
+            placeHolder: 'e.g., UserService',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Project name cannot be empty';
+                }
+                if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(value)) {
+                    return 'Project name must start with a letter and contain only letters, numbers, and underscores';
+                }
+                return null;
+            }
+        });
 
-        console.log('🔍 Environment Variables:');
-        console.log('  DB:', db);
-        console.log('  SCHEMAS_DIR:', schemasDir);
-        console.log('  NEW_DATAGRAM_TARGET_NAME:', newDatagramTargetName);
-        console.log('  MW_NAME:', mwName); // ✅ EKLENEN
-
-        // ✅ Variables objesini oluştur
-        const variables = {
-            PROJECT_NAME: projectName,
-            PSEUDO_APP_NAME: pseudoAppName,
-            DB: db,
-            SCHEMAS_DIR: schemasDir,
-            NEW_DATAGRAM_TARGET_NAME: newDatagramTargetName,
-            MW_NAME: mwName // ✅ EKLENEN
-        };
-
-        console.log('📋 All Variables:', variables);
-
-        // Template'i yükle
-        const templatePath = path.join(schemasDir, 'app.json');
-        
-        if (!fs.existsSync(templatePath)) {
-            vscode.window.showErrorMessage(`Template file not found: ${templatePath}`);
+        if (!projectName) {
             return;
         }
 
-        const templateContent = fs.readFileSync(templatePath, 'utf-8');
-        const template = JSON.parse(templateContent) as ProjectTemplate;
+        // Pseudo App Name al
+        const pseudoAppName = await vscode.window.showInputBox({
+            prompt: 'Enter pseudo app name',
+            placeHolder: 'e.g., hex_c, user_svc',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Pseudo app name cannot be empty';
+                }
+                if (!/^[a-z][a-z0-9_]*$/.test(value)) {
+                    return 'Pseudo app name must start with lowercase letter and contain only lowercase letters, numbers, and underscores';
+                }
+                return null;
+            }
+        });
 
-        // Proje yapısını oluştur
-        await createProjectStructure(baseProjectPath, template, variables);
+        if (!pseudoAppName) {
+            return;
+        }
 
-        vscode.window.showInformationMessage(
-            `✅ Project "${projectName}" created successfully!`
-        );
+        // ✅ KULLANICIDAN PATH SOR
+        let targetPath: string;
 
-        // Make'i background'da çalıştır
-        runMakeInBackground(baseProjectPath, projectName);
+        if (uri && uri.fsPath) {
+            // Sağ tık ile çağrıldıysa, o klasörü varsayılan olarak göster
+            const stat = fs.statSync(uri.fsPath);
+            targetPath = stat.isDirectory() ? uri.fsPath : path.dirname(uri.fsPath);
+        } else {
+            // Workspace root'u varsayılan olarak al
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (!workspaceFolders) {
+                vscode.window.showErrorMessage('No workspace folder open');
+                return;
+            }
+            targetPath = workspaceFolders[0].uri.fsPath;
+        }
 
+        // ✅ Kullanıcıya folder picker göster
+        const selectedUri = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            defaultUri: vscode.Uri.file(targetPath),
+            openLabel: 'Select Project Location',
+            title: `Select where to create "${projectName}"`
+        });
+
+        if (!selectedUri || selectedUri.length === 0) {
+            vscode.window.showWarningMessage('No folder selected. Project creation cancelled.');
+            return;
+        }
+
+        targetPath = selectedUri[0].fsPath;
+
+        const baseProjectPath = path.join(targetPath, projectName);
+
+        // Ana proje dizini zaten varsa uyar
+        if (fs.existsSync(baseProjectPath)) {
+            const overwrite = await vscode.window.showWarningMessage(
+                `Project "${projectName}" already exists. Overwrite?`,
+                'Yes', 'No'
+            );
+            
+            if (overwrite !== 'Yes') {
+                return;
+            }
+            
+            // Mevcut projeyi sil
+            fs.rmSync(baseProjectPath, { recursive: true, force: true });
+        }
+
+        try {
+            // Environment variables'ı al
+            const db = process.env.DB || 'postgres';
+            const schemasDir = process.env.SCHEMAS_DIR || path.join(__dirname, '../../schemas');
+            const newDatagramTargetName = process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram';
+            const mwName = process.env.MW_NAME || 'Kafka'; // ✅ EKLENEN
+
+            console.log('🔍 Environment Variables:');
+            console.log('  DB:', db);
+            console.log('  SCHEMAS_DIR:', schemasDir);
+            console.log('  NEW_DATAGRAM_TARGET_NAME:', newDatagramTargetName);
+            console.log('  MW_NAME:', mwName); // ✅ EKLENEN
+
+            // ✅ Variables objesini oluştur
+            const variables = {
+                PROJECT_NAME: projectName,
+                PSEUDO_APP_NAME: pseudoAppName,
+                DB: db,
+                SCHEMAS_DIR: schemasDir,
+                NEW_DATAGRAM_TARGET_NAME: newDatagramTargetName,
+                MW_NAME: mwName // ✅ EKLENEN
+            };
+
+            console.log('📋 All Variables:', variables);
+
+            // Template'i yükle
+            const templatePath = path.join(schemasDir, 'app.json');
+            
+            if (!fs.existsSync(templatePath)) {
+                vscode.window.showErrorMessage(`Template file not found: ${templatePath}`);
+                return;
+            }
+
+            const templateContent = fs.readFileSync(templatePath, 'utf-8');
+            const template = JSON.parse(templateContent) as ProjectTemplate;
+
+            // Proje yapısını oluştur
+            await createProjectStructure(baseProjectPath, template, variables);
+
+            vscode.window.showInformationMessage(
+                `Project '${projectName}' created successfully!`
+            );
+
+            // ✅ Progress bar ile make çalıştır
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Preparing ${projectName}...`,
+                cancellable: false
+            }, async (progress) => {
+                // 2 saniye bekle
+                progress.report({ message: 'Waiting for project initialization...' });
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Makefile kontrolü
+                const makefilePath = path.join(targetPath, 'Makefile');
+                
+                if (fs.existsSync(makefilePath)) {
+                    progress.report({ message: 'Running make...' });
+                    
+                    console.log(`🔨 Auto-running make in: ${targetPath}`);
+                    
+                    const terminal = vscode.window.createTerminal({
+                        name: `Build: ${projectName}`,
+                        cwd: targetPath
+                    });
+                    
+                    terminal.show();
+                    terminal.sendText('make');
+                    
+                    vscode.window.showInformationMessage(
+                        `✅ ${projectName} build started!`
+                    );
+                } else {
+                    vscode.window.showWarningMessage(
+                        `⚠️  Makefile not found in ${projectName}`
+                    );
+                }
+            });
+
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to create project: ${error}`);
+            console.error('❌ Project creation error:', error);
+        }
     } catch (error) {
-        vscode.window.showErrorMessage(`Failed to create project: ${error}`);
-        console.error('❌ Project creation error:', error);
+        vscode.window.showErrorMessage(`Error: ${error}`);
     }
 }
 
