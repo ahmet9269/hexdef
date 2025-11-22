@@ -271,6 +271,42 @@ export async function runMake(uri?: vscode.Uri) {
     }
 }
 
+
+/**
+ * Belirli bir dizin altında Makefile dosyasını recursive olarak bul
+ */
+function findMakefileRecursive(startPath: string): string | null {
+    if (!fs.existsSync(startPath)) {
+        return null;
+    }
+
+    // Önce direkt bu dizinde var mı bak
+    const directPath = path.join(startPath, 'Makefile');
+    if (fs.existsSync(directPath)) {
+        return directPath;
+    }
+
+    // Yoksa alt dizinlerde ara
+    try {
+        const entries = fs.readdirSync(startPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+            if (entry.isDirectory()) {
+                const fullPath = path.join(startPath, entry.name);
+                // Recursive arama
+                const found = findMakefileRecursive(fullPath);
+                if (found) {
+                    return found;
+                }
+            }
+        }
+    } catch (error) {
+        console.error(`Error searching Makefile in ${startPath}:`, error);
+    }
+
+    return null;
+}
+
 /**
  * Kodu yeniden oluştur
  */
@@ -291,10 +327,38 @@ export async function regenerateCode(uri?: vscode.Uri) {
 
         const projectName = path.basename(projectRoot);
 
-        // Makefile'ın varlığını kontrol et
-        const makefilePath = path.join(projectRoot, 'Makefile');
-        if (!fs.existsSync(makefilePath)) {
-            vscode.window.showErrorMessage(`Makefile not found in ${projectRoot}`);
+        // Hedef Makefile yollarını dinamik olarak bul
+        
+        // 1. Gray: src/${PROJECT_NAME}/src/.../Makefile
+        const graySearchPath = path.join(projectRoot, 'src', projectName, 'src');
+        const grayMakefile = findMakefileRecursive(graySearchPath);
+        
+        // 2. Dark: src/dark_src/src/.../Makefile
+        const darkSearchPath = path.join(projectRoot, 'src', 'dark_src', 'src');
+        const darkMakefile = findMakefileRecursive(darkSearchPath);
+
+        const commands: string[] = [];
+
+        // Gray Makefile varsa komutu ekle
+        if (grayMakefile) {
+            console.log(`✅ Found Gray Makefile: ${grayMakefile}`);
+            const grayDir = path.dirname(grayMakefile);
+            commands.push(`cd "${grayDir}" && make regenerate_code`);
+        } else {
+            console.warn(`⚠️ Gray Makefile not found under: ${graySearchPath}`);
+        }
+
+        // Dark Makefile varsa komutu ekle
+        if (darkMakefile) {
+            console.log(`✅ Found Dark Makefile: ${darkMakefile}`);
+            const darkDir = path.dirname(darkMakefile);
+            commands.push(`cd "${darkDir}" && make regenerate_code`);
+        } else {
+            console.warn(`⚠️ Dark Makefile not found under: ${darkSearchPath}`);
+        }
+
+        if (commands.length === 0) {
+            vscode.window.showErrorMessage(`No Makefiles found to regenerate code in ${projectName}`);
             return;
         }
 
@@ -303,13 +367,14 @@ export async function regenerateCode(uri?: vscode.Uri) {
         // ✅ Her zaman yeni terminal oluştur
         const terminal = vscode.window.createTerminal({
             name: `Regenerate - ${projectName}`,
-            cwd: projectRoot // Bu dizinde başlat
+            cwd: projectRoot // Kök dizinde başlat
         });
 
         terminal.show();
         
-        // ✅ Sadece make komutlarını gönder (zaten doğru dizindeyiz)
-        terminal.sendText('make clean && make build');
+        // ✅ Komutları sırayla çalıştır
+        const fullCommand = commands.join(' && ');
+        terminal.sendText(fullCommand);
 
         vscode.window.showInformationMessage(`Regenerating code for ${projectName}...`);
 
