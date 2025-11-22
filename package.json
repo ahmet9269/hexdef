@@ -34,6 +34,22 @@
       {
         "command": "hexdef.middleware.createNewDatagram",
         "title": "Create New Datagram"
+      },
+      {
+        "command": "hexdef.addPort.incoming",
+        "title": "Incoming Port"
+      },
+      {
+        "command": "hexdef.addPort.outgoing",
+        "title": "Outgoing Port"
+      },
+      {
+        "command": "hexdef.addAdapter.incoming",
+        "title": "Incoming Adapter"
+      },
+      {
+        "command": "hexdef.addAdapter.outgoing",
+        "title": "Outgoing Adapter"
       }
     ],
     "menus": {
@@ -57,6 +73,16 @@
           "submenu": "hexdef.middleware",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@4"
+        },
+        {
+          "submenu": "hexdef.addPort",
+          "when": "explorerResourceIsFolder",
+          "group": "hexdef@5"
+        },
+        {
+          "submenu": "hexdef.addAdapter",
+          "when": "explorerResourceIsFolder",
+          "group": "hexdef@6"
         }
       ],
       "hexdef.middleware": [
@@ -68,12 +94,40 @@
           "command": "hexdef.middleware.createNewDatagram",
           "group": "middleware@2"
         }
+      ],
+      "hexdef.addPort": [
+        {
+          "command": "hexdef.addPort.incoming",
+          "group": "port@1"
+        },
+        {
+          "command": "hexdef.addPort.outgoing",
+          "group": "port@2"
+        }
+      ],
+      "hexdef.addAdapter": [
+        {
+          "command": "hexdef.addAdapter.incoming",
+          "group": "adapter@1"
+        },
+        {
+          "command": "hexdef.addAdapter.outgoing",
+          "group": "adapter@2"
+        }
       ]
     },
     "submenus": [
       {
         "id": "hexdef.middleware",
         "label": "Middleware"
+      },
+      {
+        "id": "hexdef.addPort",
+        "label": "Add Port"
+      },
+      {
+        "id": "hexdef.addAdapter",
+        "label": "Add Adapter"
       }
     ]
   },

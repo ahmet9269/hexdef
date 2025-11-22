@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { createMultipleProjects } from './commands/multiScaffold';
 import { addRemoveDatagrams, createNewDatagram, regenerateCode, runMake } from './commands/kafka';
+import { addIncomingPort, addOutgoingPort } from './commands/addPort';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('HexDef extension is now active!');
@@ -29,6 +30,22 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('hexdef.middleware.createNewDatagram', async (uri: vscode.Uri) => {
             await createNewDatagram(uri);
+        }),
+
+        vscode.commands.registerCommand('hexdef.addPort.incoming', async (uri: vscode.Uri) => {
+            await addIncomingPort(uri);
+        }),
+
+        vscode.commands.registerCommand('hexdef.addPort.outgoing', async (uri: vscode.Uri) => {
+            await addOutgoingPort(uri);
+        }),
+
+        vscode.commands.registerCommand('hexdef.addAdapter.incoming', async (uri: vscode.Uri) => {
+            vscode.window.showInformationMessage('Add Incoming Adapter - Coming Soon!');
+        }),
+
+        vscode.commands.registerCommand('hexdef.addAdapter.outgoing', async (uri: vscode.Uri) => {
+            vscode.window.showInformationMessage('Add Outgoing Adapter - Coming Soon!');
         })
     );
 
