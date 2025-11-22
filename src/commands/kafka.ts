@@ -330,7 +330,82 @@ export async function regenerateCode(uri?: vscode.Uri) {
 }
 
 /**
- * Add/Remove Datagrams - ESKİ VE ÇALIŞAN VERSİYON
+ * Proje XML dosyasını dinamik olarak bul
+ * Hem gray hem dark dizinlerinde ara
+ */
+function findProjectXmlPaths(projectRoot: string, projectName: string, mwName: string): {
+    gray: string | null;
+    dark: string | null;
+} {
+    const result = { gray: null as string | null, dark: null as string | null };
+    
+    // Gray dizininde ara (src/${PROJECT_NAME}/ altında)
+    const graySearchRoot = path.join(projectRoot, 'src', projectName);
+    if (fs.existsSync(graySearchRoot)) {
+        const grayXmlPath = findXmlInAdapters(graySearchRoot, projectName, mwName);
+        if (grayXmlPath) {
+            result.gray = grayXmlPath;
+            console.log(`✅ Found gray XML: ${grayXmlPath}`);
+        }
+    }
+    
+    // Dark dizininde ara (src/dark_src/ altında)
+    const darkSearchRoot = path.join(projectRoot, 'src', 'dark_src');
+    if (fs.existsSync(darkSearchRoot)) {
+        const darkXmlPath = findXmlInAdapters(darkSearchRoot, projectName, mwName);
+        if (darkXmlPath) {
+            result.dark = darkXmlPath;
+            console.log(`✅ Found dark XML: ${darkXmlPath}`);
+        }
+    }
+    
+    return result;
+}
+
+/**
+ * adapters/common/${MW_NAME}/${PROJECT_NAME}.xml dosyasını ara
+ * Belirsiz sayıda ara dizin olabilir
+ */
+function findXmlInAdapters(startPath: string, projectName: string, mwName: string): string | null {
+    const targetPattern = path.join('adapters', 'common', mwName, `${projectName}.xml`);
+    
+    // Recursive olarak ara
+    function searchRecursive(currentPath: string, depth: number = 0): string | null {
+        // Max depth kontrolü (sonsuz döngüden kaçın)
+        if (depth > 10) return null;
+        
+        try {
+            const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+            
+            for (const entry of entries) {
+                const fullPath = path.join(currentPath, entry.name);
+                
+                if (entry.isDirectory()) {
+                    // Eğer bu dizin 'adapters' ise, altında common/${MW_NAME} ara
+                    if (entry.name === 'adapters') {
+                        const possibleXml = path.join(fullPath, 'common', mwName, `${projectName}.xml`);
+                        if (fs.existsSync(possibleXml)) {
+                            return possibleXml;
+                        }
+                    }
+                    
+                    // Recursive olarak alt dizinlere de bak
+                    const result = searchRecursive(fullPath, depth + 1);
+                    if (result) return result;
+                }
+            }
+        } catch (error) {
+            // Permission denied vs. hatalarını göz ardı et
+        }
+        
+        return null;
+    }
+    
+    return searchRecursive(startPath);
+}
+
+/**
+ * Add/Remove Datagrams - GELİŞTİRİLMİŞ VERSİYON
  */
 export async function addRemoveDatagrams(uri?: vscode.Uri) {
     try {
@@ -342,14 +417,42 @@ export async function addRemoveDatagrams(uri?: vscode.Uri) {
         }
         
         const folderPath = uri.fsPath;
-        const projectName = path.basename(folderPath);
-        const projectXmlPath = path.join(folderPath, `${projectName}.xml`);
         
-        console.log('Project path:', projectXmlPath);
+        // Proje root'unu bul
+        const projectRoot = findProjectRoot(folderPath);
+        if (!projectRoot) {
+            vscode.window.showErrorMessage('Could not find project root (.project_root marker not found)');
+            return;
+        }
+        
+        const projectName = path.basename(projectRoot);
+        const mwName = process.env.MW_NAME || 'Kafka';
+        
+        console.log('Project root:', projectRoot);
+        console.log('Project name:', projectName);
+        console.log('MW name:', mwName);
+        
+        // XML dosyalarını dinamik olarak bul
+        const xmlPaths = findProjectXmlPaths(projectRoot, projectName, mwName);
+        
+        if (!xmlPaths.gray && !xmlPaths.dark) {
+            vscode.window.showErrorMessage(
+                `Could not find ${projectName}.xml in adapters/common/${mwName}/\n\n` +
+                'Expected locations:\n' +
+                `  • src/${projectName}/.../adapters/common/${mwName}/${projectName}.xml\n` +
+                `  • src/dark_src/.../adapters/common/${mwName}/${projectName}.xml`
+            );
+            return;
+        }
+        
+        // Primary XML path (gray varsa onu kullan, yoksa dark)
+        const primaryXmlPath = xmlPaths.gray || xmlPaths.dark!;
+        
+        console.log('Primary XML path:', primaryXmlPath);
         
         // Get available datagrams
-        const selectedDatagrams = getSelectedDatagrams(projectXmlPath);
-        const availableDatagrams = getAvailableDatagrams(folderPath, projectXmlPath);
+        const selectedDatagrams = getSelectedDatagrams(primaryXmlPath);
+        const availableDatagrams = getAvailableDatagrams(folderPath, primaryXmlPath);
         
         console.log('Selected datagrams:', selectedDatagrams.length);
         console.log('Available datagrams:', availableDatagrams.length);
@@ -375,18 +478,28 @@ export async function addRemoveDatagrams(uri?: vscode.Uri) {
             async message => {
                 switch (message.command) {
                     case 'moveToSelected':
-                        // Don't save yet, just notify
-                        break;
                     case 'moveToAvailable':
-                        // Don't save yet, just notify
-                        break;
                     case 'updateCheckbox':
                         // Don't save yet, just track changes
                         break;
                     case 'saveAll':
-                        // Save all selected datagrams with their checkbox states
-                        await saveAllDatagrams(projectXmlPath, message.datagrams);
-                        vscode.window.showInformationMessage(`Saved datagrams to ${projectName}.xml`);
+                        // Save to both gray and dark if both exist
+                        const savedPaths: string[] = [];
+                        
+                        if (xmlPaths.gray) {
+                            await saveAllDatagrams(xmlPaths.gray, message.datagrams);
+                            savedPaths.push(xmlPaths.gray);
+                        }
+                        
+                        if (xmlPaths.dark) {
+                            await saveAllDatagrams(xmlPaths.dark, message.datagrams);
+                            savedPaths.push(xmlPaths.dark);
+                        }
+                        
+                        const locations = savedPaths.map(p => `  • ${p}`).join('\n');
+                        vscode.window.showInformationMessage(
+                            `Saved datagrams to ${savedPaths.length} location(s):\n${locations}`
+                        );
                         
                         // ✅ File Explorer'ı yenile
                         await vscode.commands.executeCommand('workbench.files.action.refreshFilesExplorer');

@@ -81,6 +81,11 @@
       "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/common/${MW_NAME}/${NEW_DATAGRAM_TARGET_NAME}"
     },
     {
+      "type": "file",
+      "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/adapters/common/${MW_NAME}/${PROJECT_NAME}.xml",
+       "content": "${SCHEMAS_DIR}/app.xml"
+    },
+    {
       "type": "directory",
       "path": "src/${PROJECT_NAME}/src/${PROJECT_NAME}/domain/logic"
     },
@@ -163,6 +168,13 @@
       "type": "directory",
       "path": "src/dark_src/src/${PROJECT_NAME}/adapters/common/${MW_NAME}/${NEW_DATAGRAM_TARGET_NAME}"
     },
+    {
+      "type": "file",
+      "path": "src/dark_src/src/${PROJECT_NAME}/adapters/common/${MW_NAME}/${PROJECT_NAME}.xml",
+      "content": "${SCHEMAS_DIR}/app.xml"
+    },
+
+   
     {
       "type": "directory",
       "path": "src/dark_src/src/${PROJECT_NAME}/domain/logic"

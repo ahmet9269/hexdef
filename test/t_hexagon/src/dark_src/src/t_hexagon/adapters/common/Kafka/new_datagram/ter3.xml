@@ -1,9 +1,0 @@
-<?xml version="1.0" standalone="no"?>
-<!DOCTYPE ${DATAGRAM_DESCRIPTION} >
-
-<${MW_NAME} name="ter3" >
-<definition>
-    <field name="dummy" type="long" />
-</definition>
-<keys></keys>
-</${MW_NAME}>

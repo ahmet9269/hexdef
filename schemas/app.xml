@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <datagrams>
-  <datagram name="OrderMessage" type="pub"/>
   <datagram name="data1" type="pubsub"/>
-  <datagram name="data3" type="sub"/>
 </datagrams>
