@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { createMultipleProjects, regenerateCode, runMake } from './commands/multiScaffold';
-import { addRemoveDatagrams, createNewDatagram } from './commands/kafka';
+import { createMultipleProjects } from './commands/multiScaffold';
+import { addRemoveDatagrams, createNewDatagram, regenerateCode, runMake } from './commands/kafka';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('HexDef extension is now active!');

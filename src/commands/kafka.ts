@@ -228,46 +228,46 @@ export async function createNewDatagram(uri?: vscode.Uri) {
  */
 export async function runMake(uri?: vscode.Uri) {
     try {
-        // Uri'yi path'e çevir
-        const startPath = uri?.fsPath || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!uri || !uri.fsPath) {
+            vscode.window.showErrorMessage('No folder selected');
+            return;
+        }
+
+        // Proje root'unu bul
+        const projectRoot = findProjectRoot(uri.fsPath);
         
-        if (!startPath) {
-            vscode.window.showErrorMessage('No folder selected or workspace opened!');
-            return;
-        }
-
-        // Proje root'unu bul (.project_root marker)
-        const projectRoot = await findProjectRoot(startPath);
         if (!projectRoot) {
-            vscode.window.showErrorMessage('Project root (.project_root marker) not found!');
+            vscode.window.showErrorMessage('Could not find project root (.project_root marker not found)');
             return;
         }
 
-        // Makefile var mı kontrol et
+        const projectName = path.basename(projectRoot);
+
+        // Makefile'ın varlığını kontrol et
         const makefilePath = path.join(projectRoot, 'Makefile');
         if (!fs.existsSync(makefilePath)) {
             vscode.window.showErrorMessage(`Makefile not found in ${projectRoot}`);
             return;
         }
 
-        console.log(`🔨 Running make in: ${projectRoot}`);
+        console.log('Running make in:', projectRoot);
 
-        // Terminal oluştur ve make komutunu çalıştır
+        // ✅ Her zaman yeni terminal oluştur
         const terminal = vscode.window.createTerminal({
-            name: `Make: ${path.basename(projectRoot)}`,
-            cwd: projectRoot
+            name: `Make - ${projectName}`,
+            cwd: projectRoot // Bu dizinde başlat
         });
 
         terminal.show();
+        
+        // ✅ Sadece make komutunu gönder (zaten doğru dizindeyiz)
         terminal.sendText('make');
 
-        vscode.window.showInformationMessage(
-            `Running make in ${path.basename(projectRoot)}...`
-        );
+        vscode.window.showInformationMessage(`Running make in ${projectName}...`);
 
     } catch (error) {
-        vscode.window.showErrorMessage(`Error running make: ${error}`);
-        console.error('Run make error:', error);
+        vscode.window.showErrorMessage(`Failed to run make: ${error}`);
+        console.error('❌ Run make error:', error);
     }
 }
 
@@ -276,56 +276,46 @@ export async function runMake(uri?: vscode.Uri) {
  */
 export async function regenerateCode(uri?: vscode.Uri) {
     try {
-        // Uri'yi path'e çevir
-        const startPath = uri?.fsPath || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        
-        if (!startPath) {
-            vscode.window.showErrorMessage('No folder selected or workspace opened!');
+        if (!uri || !uri.fsPath) {
+            vscode.window.showErrorMessage('No folder selected');
             return;
         }
 
         // Proje root'unu bul
-        const projectRoot = findProjectRoot(startPath);
-        if (!projectRoot) {
-            vscode.window.showErrorMessage('Project root (.project_root marker) not found!');
-            return;
-        }
-
-        // dark_src dizinini bul
-        const darkSrcPath = path.join(projectRoot, 'src', 'dark_src');
+        const projectRoot = findProjectRoot(uri.fsPath);
         
-        if (!fs.existsSync(darkSrcPath)) {
-            vscode.window.showErrorMessage(`dark_src directory not found in ${projectRoot}`);
+        if (!projectRoot) {
+            vscode.window.showErrorMessage('Could not find project root (.project_root marker not found)');
             return;
         }
 
-        // dark_src altındaki Makefile'ı kontrol et
-        const makefilePath = path.join(darkSrcPath, 'Makefile');
+        const projectName = path.basename(projectRoot);
+
+        // Makefile'ın varlığını kontrol et
+        const makefilePath = path.join(projectRoot, 'Makefile');
         if (!fs.existsSync(makefilePath)) {
-            vscode.window.showErrorMessage(`Makefile not found in ${darkSrcPath}`);
+            vscode.window.showErrorMessage(`Makefile not found in ${projectRoot}`);
             return;
         }
 
-        console.log(`🔄 Regenerating code in: ${darkSrcPath}`);
+        console.log('Regenerating code in:', projectRoot);
 
-        // Terminal oluştur
+        // ✅ Her zaman yeni terminal oluştur
         const terminal = vscode.window.createTerminal({
-            name: `Regenerate Code: ${path.basename(projectRoot)}`,
-            cwd: darkSrcPath
+            name: `Regenerate - ${projectName}`,
+            cwd: projectRoot // Bu dizinde başlat
         });
 
         terminal.show();
         
-        // make regenerate_code çalıştır
-        terminal.sendText('make regenerate_code');
+        // ✅ Sadece make komutlarını gönder (zaten doğru dizindeyiz)
+        terminal.sendText('make clean && make build');
 
-        vscode.window.showInformationMessage(
-            `Regenerating code in ${path.basename(projectRoot)}/src/dark_src...`
-        );
+        vscode.window.showInformationMessage(`Regenerating code for ${projectName}...`);
 
     } catch (error) {
-        vscode.window.showErrorMessage(`Error regenerating code: ${error}`);
-        console.error('Regenerate code error:', error);
+        vscode.window.showErrorMessage(`Failed to regenerate code: ${error}`);
+        console.error('❌ Regenerate code error:', error);
     }
 }
 
