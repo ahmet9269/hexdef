@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { createMultipleProjects } from './commands/multiScaffold';
 import { addRemoveDatagrams, createNewDatagram, regenerateCode, runMake } from './commands/kafka';
 import { addIncomingPort, addOutgoingPort } from './commands/addPort';
+import { addIncomingAdapter, addOutgoingAdapter } from './commands/addAdapter';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('HexDef extension is now active!');
@@ -41,11 +42,11 @@ export function activate(context: vscode.ExtensionContext) {
         }),
 
         vscode.commands.registerCommand('hexdef.addAdapter.incoming', async (uri: vscode.Uri) => {
-            vscode.window.showInformationMessage('Add Incoming Adapter - Coming Soon!');
+            await addIncomingAdapter(uri);
         }),
 
         vscode.commands.registerCommand('hexdef.addAdapter.outgoing', async (uri: vscode.Uri) => {
-            vscode.window.showInformationMessage('Add Outgoing Adapter - Coming Soon!');
+            await addOutgoingAdapter(uri);
         })
     );
 
