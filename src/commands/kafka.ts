@@ -226,7 +226,7 @@ export async function createNewDatagram(uri?: vscode.Uri) {
 /**
  * Make komutunu çalıştır
  */
-export async function runMake(uri?: vscode.Uri) {
+async function executeMake(uri: vscode.Uri | undefined, target: string = '') {
     try {
         if (!uri || !uri.fsPath) {
             vscode.window.showErrorMessage('No folder selected');
@@ -250,25 +250,38 @@ export async function runMake(uri?: vscode.Uri) {
             return;
         }
 
-        console.log('Running make in:', projectRoot);
+        console.log(`Running make ${target} in:`, projectRoot);
 
         // ✅ Her zaman yeni terminal oluştur
         const terminal = vscode.window.createTerminal({
-            name: `Make - ${projectName}`,
+            name: `Make ${target} - ${projectName}`,
             cwd: projectRoot // Bu dizinde başlat
         });
 
         terminal.show();
         
         // ✅ Sadece make komutunu gönder (zaten doğru dizindeyiz)
-        terminal.sendText('make');
+        const command = target ? `make ${target}` : 'make';
+        terminal.sendText(command);
 
-        vscode.window.showInformationMessage(`Running make in ${projectName}...`);
+        vscode.window.showInformationMessage(`Running ${command} in ${projectName}...`);
 
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to run make: ${error}`);
         console.error('❌ Run make error:', error);
     }
+}
+
+export async function runMake(uri?: vscode.Uri) {
+    await executeMake(uri, '');
+}
+
+export async function runClean(uri?: vscode.Uri) {
+    await executeMake(uri, 'clean');
+}
+
+export async function runRealClean(uri?: vscode.Uri) {
+    await executeMake(uri, 'realclean');
 }
 
 

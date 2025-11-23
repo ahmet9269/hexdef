@@ -16,16 +16,28 @@
   "contributes": {
     "commands": [
       {
+        "command": "hexdef.header",
+        "title": "Hex Arch"
+      },
+      {
         "command": "hexdef.createNewProject",
-        "title": "HexArch: Create New Project"
+        "title": "Create New Project"
       },
       {
         "command": "hexdef.runMake",
-        "title": "HexArch: Run Make"
+        "title": "Run Make"
+      },
+      {
+        "command": "hexdef.runClean",
+        "title": "Run Clean"
+      },
+      {
+        "command": "hexdef.runRealClean",
+        "title": "Run RealClean"
       },
       {
         "command": "hexdef.regenerateCode",
-        "title": "HexArch: Regenerate Code"
+        "title": "Regenerate Code"
       },
       {
         "command": "hexdef.middleware.addRemoveDatagrams",
@@ -55,34 +67,49 @@
     "menus": {
       "explorer/context": [
         {
-          "command": "hexdef.createNewProject",
+          "command": "hexdef.header",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@1"
         },
         {
-          "command": "hexdef.runMake",
+          "command": "hexdef.createNewProject",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@2"
         },
         {
-          "command": "hexdef.regenerateCode",
+          "command": "hexdef.runMake",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@3"
         },
         {
-          "submenu": "hexdef.middleware",
+          "command": "hexdef.runClean",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@4"
         },
         {
-          "submenu": "hexdef.addPort",
+          "command": "hexdef.runRealClean",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@5"
         },
         {
-          "submenu": "hexdef.addAdapter",
+          "command": "hexdef.regenerateCode",
           "when": "explorerResourceIsFolder",
           "group": "hexdef@6"
+        },
+        {
+          "submenu": "hexdef.middleware",
+          "when": "explorerResourceIsFolder",
+          "group": "hexdef@7"
+        },
+        {
+          "submenu": "hexdef.addPort",
+          "when": "explorerResourceIsFolder",
+          "group": "hexdef@8"
+        },
+        {
+          "submenu": "hexdef.addAdapter",
+          "when": "explorerResourceIsFolder",
+          "group": "hexdef@9"
         }
       ],
       "hexdef.middleware": [
@@ -140,13 +167,14 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
+    "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
+    "@vscode/test-electron": "^2.3.8",
+    "@vscode/vsce": "^3.7.0",
     "eslint": "^8.56.0",
-    "typescript": "^5.3.3",
-    "@vscode/test-electron": "^2.3.8"
+    "typescript": "^5.3.3"
   }
 }

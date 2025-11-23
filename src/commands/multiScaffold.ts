@@ -12,7 +12,7 @@ export async function createMultipleProjects(uri?: vscode.Uri) {
         // Kullanıcıdan proje adını al
         const projectName = await vscode.window.showInputBox({
             prompt: 'Enter project name',
-            placeHolder: 'e.g., UserService',
+            placeHolder: 'e.g., a_hexagon_XX',
             validateInput: (value) => {
                 if (!value || value.trim().length === 0) {
                     return 'Project name cannot be empty';
@@ -31,7 +31,7 @@ export async function createMultipleProjects(uri?: vscode.Uri) {
         // Pseudo App Name al
         const pseudoAppName = await vscode.window.showInputBox({
             prompt: 'Enter pseudo app name',
-            placeHolder: 'e.g., hex_c, user_svc',
+            placeHolder: 'e.g., hex_c, pseudo_a_hex',
             validateInput: (value) => {
                 if (!value || value.trim().length === 0) {
                     return 'Pseudo app name cannot be empty';

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { createMultipleProjects } from './commands/multiScaffold';
-import { addRemoveDatagrams, createNewDatagram, regenerateCode, runMake } from './commands/kafka';
+import { addRemoveDatagrams, createNewDatagram, regenerateCode, runMake, runClean, runRealClean } from './commands/kafka';
 import { addIncomingPort, addOutgoingPort } from './commands/addPort';
 import { addIncomingAdapter, addOutgoingAdapter } from './commands/addAdapter';
 
@@ -19,6 +19,14 @@ export function activate(context: vscode.ExtensionContext) {
         
         vscode.commands.registerCommand('hexdef.runMake', async (uri: vscode.Uri) => {
             await runMake(uri);
+        }),
+
+        vscode.commands.registerCommand('hexdef.runClean', async (uri: vscode.Uri) => {
+            await runClean(uri);
+        }),
+
+        vscode.commands.registerCommand('hexdef.runRealClean', async (uri: vscode.Uri) => {
+            await runRealClean(uri);
         }),
 
         vscode.commands.registerCommand('hexdef.regenerateCode', async (uri: vscode.Uri) => {
@@ -47,6 +55,11 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('hexdef.addAdapter.outgoing', async (uri: vscode.Uri) => {
             await addOutgoingAdapter(uri);
+        }),
+
+        // Dummy command for the menu header
+        vscode.commands.registerCommand('hexdef.header', async () => {
+            // Do nothing
         })
     );
 
