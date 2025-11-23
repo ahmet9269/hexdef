@@ -19,8 +19,7 @@ async function addAdapter(uri: vscode.Uri, type: 'incoming' | 'outgoing') {
     const projectPath = uri.fsPath;
     const isWhite = projectPath.includes('white_src');
     const headerExt = isWhite ? '.hpp' : '.h';
-    const sourceExt = isWhite ? '.cpp' : '.cc';
-
+    
     // 1. Locate the ports directory to list available ports
     const portsDir = findPortsDirectory(projectPath, type);
     if (!portsDir) {
@@ -67,15 +66,18 @@ async function addAdapter(uri: vscode.Uri, type: 'incoming' | 'outgoing') {
     }
 
     // Normalize technology name for file/class naming
+    // PascalCase for Class Name (e.g. Kafka)
     const techPascal = technology.charAt(0).toUpperCase() + technology.slice(1).toLowerCase();
+    // lowercase for directory (e.g. kafka)
     const techLower = technology.toLowerCase();
 
-    // Extract Model Name from Port Name
+    // Extract Model Name from Port Name (e.g., IOrderIncomingPort.h -> Order)
     const portNameBase = selectedPortFile.replace(/\.(h|hpp)$/, '');
     const match = portNameBase.match(/^I(.+)(Incoming|Outgoing)Port$/);
     const modelName = match ? match[1] : portNameBase; 
 
     // 4. Determine Adapter Directory
+    // Should be .../src/*/adapters/${type}/${techLower}
     const baseAdaptersDir = findAdaptersDirectory(projectPath, type);
     if (!baseAdaptersDir) {
         vscode.window.showErrorMessage(`Could not find adapters/${type} directory.`);
@@ -88,11 +90,12 @@ async function addAdapter(uri: vscode.Uri, type: 'incoming' | 'outgoing') {
     }
 
     // 5. Generate Adapter Name
+    // Format: ModelName + Technology + Incoming/Outgoing + Adapter
+    // e.g. DelayCalcTrackDataKafkaIncomingAdapter
     const adapterName = `${modelName}${techPascal}${type === 'incoming' ? 'Incoming' : 'Outgoing'}Adapter`;
     const adapterHeaderFile = path.join(adaptersDir, `${adapterName}${headerExt}`);
-    const adapterSourceFile = path.join(adaptersDir, `${adapterName}${sourceExt}`);
 
-    if (fs.existsSync(adapterHeaderFile) || fs.existsSync(adapterSourceFile)) {
+    if (fs.existsSync(adapterHeaderFile)) {
         vscode.window.showErrorMessage(`Adapter ${adapterName} already exists.`);
         return;
     }
@@ -103,21 +106,18 @@ async function addAdapter(uri: vscode.Uri, type: 'incoming' | 'outgoing') {
     // Calculate relative path to port
     const relativePortPath = path.relative(adaptersDir, path.join(portsDir, selectedPortFile)).replace(/\\/g, '/');
 
-    let content = { header: '', source: '' };
+    let content = '';
     if (type === 'outgoing') {
-        content = generateOutgoingAdapter(namespace, adapterName, modelName, relativePortPath, technology, headerExt);
+        content = generateOutgoingAdapter(namespace, adapterName, modelName, relativePortPath, technology);
     } else {
-        content = generateIncomingAdapter(namespace, adapterName, modelName, relativePortPath, technology, headerExt);
+        content = generateIncomingAdapter(namespace, adapterName, modelName, relativePortPath, technology);
     }
 
-    fs.writeFileSync(adapterHeaderFile, content.header);
-    fs.writeFileSync(adapterSourceFile, content.source);
+    fs.writeFileSync(adapterHeaderFile, content);
 
-    // Open the files
-    const docHeader = await vscode.workspace.openTextDocument(adapterHeaderFile);
-    await vscode.window.showTextDocument(docHeader, { preview: false });
-    const docSource = await vscode.workspace.openTextDocument(adapterSourceFile);
-    await vscode.window.showTextDocument(docSource, { preview: false, viewColumn: vscode.ViewColumn.Beside });
+    // Open the file
+    const doc = await vscode.workspace.openTextDocument(adapterHeaderFile);
+    await vscode.window.showTextDocument(doc);
 
     vscode.window.showInformationMessage(`Created adapter: ${adapterName}`);
 }
@@ -214,12 +214,13 @@ function getNamespaceFromPath(dirPath: string): string {
     return 'app::adapters';
 }
 
-function generateOutgoingAdapter(namespace: string, className: string, modelName: string, relativePortPath: string, technology: string, headerExt: string): { header: string, source: string } {
+function generateOutgoingAdapter(namespace: string, className: string, modelName: string, relativePortPath: string, technology: string): string {
     const portClass = `I${modelName}OutgoingPort`;
     
-    const header = `#pragma once
+    return `#pragma once
 
 #include "${relativePortPath}"
+#include <iostream>
 
 namespace ${namespace} {
 
@@ -227,34 +228,23 @@ class ${className} : public domain::ports::outgoing::${portClass} {
 public:
     virtual ~${className}() = default;
 
-    void send(const domain::model::${modelName}& data) override;
+    void send(const domain::model::${modelName}& data) override {
+        // TODO: Implement ${technology} sending logic
+        std::cout << "[${technology}] Adapter sending ${modelName}..." << std::endl;
+    }
 };
 
 } // namespace ${namespace}
 `;
-
-    const source = `#include "${className}${headerExt}"
-#include <iostream>
-
-namespace ${namespace} {
-
-void ${className}::send(const domain::model::${modelName}& data) {
-    // TODO: Implement ${technology} sending logic
-    std::cout << "[${technology}] Adapter sending ${modelName}..." << std::endl;
 }
 
-} // namespace ${namespace}
-`;
-
-    return { header, source };
-}
-
-function generateIncomingAdapter(namespace: string, className: string, modelName: string, relativePortPath: string, technology: string, headerExt: string): { header: string, source: string } {
+function generateIncomingAdapter(namespace: string, className: string, modelName: string, relativePortPath: string, technology: string): string {
     const portClass = `I${modelName}IncomingPort`;
 
-    const header = `#pragma once
+    return `#pragma once
 
 #include "${relativePortPath}"
+#include <iostream>
 #include <memory>
 
 namespace ${namespace} {
@@ -265,36 +255,23 @@ private:
     domain::ports::incoming::${portClass}& port;
 
 public:
-    explicit ${className}(domain::ports::incoming::${portClass}& port);
+    explicit ${className}(domain::ports::incoming::${portClass}& port) 
+        : port(port) {}
+
     virtual ~${className}() = default;
 
     // This method simulates receiving data from ${technology}
-    void startListening();
+    void startListening() {
+        // TODO: Implement ${technology} listening logic
+        std::cout << "[${technology}] Adapter started listening for ${modelName}..." << std::endl;
+        
+        // Example usage:
+        // domain::model::${modelName} data;
+        // ... fill data from ${technology} message ...
+        // port.onDataReceived(data);
+    }
 };
 
 } // namespace ${namespace}
 `;
-
-    const source = `#include "${className}${headerExt}"
-#include <iostream>
-
-namespace ${namespace} {
-
-${className}::${className}(domain::ports::incoming::${portClass}& port) 
-    : port(port) {}
-
-void ${className}::startListening() {
-    // TODO: Implement ${technology} listening logic
-    std::cout << "[${technology}] Adapter started listening for ${modelName}..." << std::endl;
-    
-    // Example usage:
-    // domain::model::${modelName} data;
-    // ... fill data from ${technology} message ...
-    // port.onDataReceived(data);
-}
-
-} // namespace ${namespace}
-`;
-
-    return { header, source };
 }
