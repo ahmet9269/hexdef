@@ -142,7 +142,7 @@ export async function createNewDatagram(uri?: vscode.Uri) {
 
         // Template'i yükle
         const schemasDir = process.env.SCHEMAS_DIR || path.join(__dirname, '../../schemas');
-        const datagramTemplatePath = path.join(schemasDir, 'datagram.xml');
+        const datagramTemplatePath = process.env.NEW_DATAGRAM_TEMPLATE_PATH || path.join(schemasDir, 'datagram.xml');
         
         if (!fs.existsSync(datagramTemplatePath)) {
             vscode.window.showErrorMessage(`Datagram template not found: ${datagramTemplatePath}`);
@@ -632,7 +632,7 @@ function getSelectedDatagrams(projectXmlPath: string): Array<{name: string, pub:
         const datagrams: Array<{name: string, pub: boolean, sub: boolean}> = [];
         
         // Parse XML to extract datagrams with type info
-        const datagramRegex = /<datagram name="([^"]+)" type="([^"]+)"\/>/g;
+        const datagramRegex = /<${DATAGRAM}s name="([^"]+)" role="([^"]+)"\/>/g;
         let match;
         
         while ((match = datagramRegex.exec(content)) !== null) {
@@ -655,7 +655,7 @@ function getSelectedDatagrams(projectXmlPath: string): Array<{name: string, pub:
 async function saveAllDatagrams(projectXmlPath: string, datagrams: Array<{name: string, pub: boolean, sub: boolean}>) {
     try {
         // Create XML content
-        let content = '<?xml version="1.0" encoding="UTF-8"?>\n<datagrams>\n';
+        let content = '<?xml version="1.0" encoding="UTF-8"?>\n<${DATAGRAM}s>\n';
         
         for (const datagram of datagrams) {
             const type = datagram.pub && datagram.sub ? 'pubsub' : 
@@ -663,7 +663,7 @@ async function saveAllDatagrams(projectXmlPath: string, datagrams: Array<{name: 
                         datagram.sub ? 'sub' : '';
             
             if (type) {
-                content += `  <datagram name="${datagram.name}" type="${type}"/>\n`;
+                content += `  <datagram name="${datagram.name}" role="${type}"/>\n`;
             }
         }
         

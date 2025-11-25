@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<datagrams>
-  <datagram name="data1" type="pubsub"/>
-</datagrams>
+<program name="${PROJECT_NAME}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="program_${NEW_DATAGRAM_TARGET_NAME}_definitions.xsd">
+  <${NEW_DATAGRAM_TARGET_NAME} name="data1" role="pubsub"/>
+</program>

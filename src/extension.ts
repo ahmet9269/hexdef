@@ -1,10 +1,14 @@
 import * as vscode from 'vscode';
+import { loadConfig } from './config';
 import { createMultipleProjects } from './commands/multiScaffold';
 import { addRemoveDatagrams, createNewDatagram, regenerateCode, runMake, runClean, runRealClean } from './commands/kafka';
 import { addIncomingPort, addOutgoingPort } from './commands/addPort';
 import { addIncomingAdapter, addOutgoingAdapter } from './commands/addAdapter';
 
 export function activate(context: vscode.ExtensionContext) {
+    // Load configuration from schemas/hex.cfg/config.json
+    loadConfig();
+
     console.log('HexDef extension is now active!');
 
     // Çevre değişkeninden MW_NAME al

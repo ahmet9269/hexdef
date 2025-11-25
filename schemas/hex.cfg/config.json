@@ -1,0 +1,10 @@
+{
+    "DATAGRAM_DIR_PATH": "/workspaces/hexdef/test/datagram_dir",
+    "DB": "kafkaxx",
+    "NEW_DATAGRAM_TEMPLATE_PATH": "${SCHEMAS_DIR}/datagram.xml",
+    "NEW_DATAGRAM_TARGET_NAME": "new_datagram",
+    "MW_NAME": "kafkaa",
+    "DATAGRAM_SAVE_DIR": "adapters/common",
+    "DATAGRAM": "datagram",
+    "DATAGRAM_DESCRIPTION": "!DOCTYPE datagram SYSTEM _description.dtd"
+}
