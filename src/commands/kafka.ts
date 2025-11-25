@@ -674,7 +674,8 @@ function getSelectedDatagrams(projectXmlPath: string): Array<{name: string, pub:
         
         // Parse XML to extract datagrams with type info
         // Create regex dynamically: <TAG name="..." role="..."/>
-        const regexPattern = `<${datagramTag}\\s+name="([^"]+)"\\s+role="([^"]+)"\\s*/>`;
+        // \s* allows for optional spaces, and we handle potential attributes in between if needed
+        const regexPattern = `<${datagramTag}\\s+name="([^"]+)"\\s+role="([^"]+)"`;
         const datagramRegex = new RegExp(regexPattern, 'g');
         
         let match;
@@ -700,14 +701,12 @@ function getSelectedDatagrams(projectXmlPath: string): Array<{name: string, pub:
 async function saveAllDatagrams(projectXmlPath: string, datagrams: Array<{name: string, pub: boolean, sub: boolean}>, projectName: string) {
     try {
         const datagramTag = process.env.DATAGRAM || 'datagram';
-        const programDatagramDescription = process.env.DATAGRAM_DESCRIPTION || '';
+        const programDatagramDescription = process.env.PROGRAM_DATAGRAM_DESCRIPTION || '';
 
         // Create XML content
         let content = '<?xml version="1.0" encoding="UTF-8"?>\n';
-        if (programDatagramDescription) {
-            content += `${programDatagramDescription}\n`;
-        }
-        content += `<program name="${projectName}">\n`;
+  
+        content += `<program name="${projectName} "${programDatagramDescription}    >\n`;
         
         for (const datagram of datagrams) {
             const type = datagram.pub && datagram.sub ? 'pubsub' : 

@@ -5,7 +5,7 @@
     "NEW_DATAGRAM_TARGET_NAME": "datagram",
     "MW_NAME": "kafkaa",
     "DATAGRAM_SAVE_DIR": "adapters/common",
-    "DATAGRAM": "datagramxhh",
+    "DATAGRAM": "datagram",
     "DATAGRAM_DESCRIPTION": "<!DOCTYPE datagram SYSTEM _description.dtd>",
-    "PROGRAM_DESCRIPTION": "!DOCTYPE datagram SYSTEM _description.dtd"
+    "PROGRAM_DATAGRAM_DESCRIPTION": "xmlns:xslt=\"http://www.w3.org/1999/XSL/Transform xsi:noNamespaceSchemaLocation=\"datagram_description.xsd\"?>"
 }
