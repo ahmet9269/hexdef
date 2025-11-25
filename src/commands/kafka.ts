@@ -590,39 +590,73 @@ export async function addRemoveDatagrams(uri?: vscode.Uri) {
     }
 }
 
-function getAvailableDatagrams(folderPath: string, projectXmlPath: string): string[] {
-    // Check environment variable (mandatory)
+function getAvailableDatagrams(folderPath: string, projectXmlPath: string): Array<{name: string, isLocal: boolean}> {
+    const globalDatagrams = new Set<string>();
+    const localDatagrams = new Set<string>();
+
+    // 1. Global Datagrams (DATAGRAM_DIR_PATH)
     const datagramDir = process.env.DATAGRAM_DIR_PATH;
     
-    if (!datagramDir) {
-        vscode.window.showErrorMessage('DATAGRAM_DIR_PATH environment variable is not defined. Please set it to the path of your datagram directory.');
-        return [];
-    }
-    
-    try {
-        if (!fs.existsSync(datagramDir)) {
-            vscode.window.showErrorMessage(`DATAGRAM_DIR_PATH is set to "${datagramDir}" but the directory does not exist.`);
-            return [];
+    if (datagramDir) {
+        try {
+            if (fs.existsSync(datagramDir)) {
+                console.log('Using global datagram directory:', datagramDir);
+                const files = fs.readdirSync(datagramDir);
+                files
+                    .filter(file => file.toLowerCase().endsWith('.xml'))
+                    .forEach(file => globalDatagrams.add(path.basename(file, '.xml')));
+            } else {
+                vscode.window.showErrorMessage(`DATAGRAM_DIR_PATH is set to "${datagramDir}" but the directory does not exist.`);
+            }
+        } catch (error) {
+            console.error(`Error reading global datagram directory: ${error}`);
         }
-        
-        console.log('Using datagram directory:', datagramDir);
-        
-        // Read all files in datagram_dir
-        const files = fs.readdirSync(datagramDir);
-        
-        // Filter XML files and remove extension
-        const xmlFiles = files
-            .filter(file => file.toLowerCase().endsWith('.xml'))
-            .map(file => path.basename(file, '.xml'));
-        
-        // Get already selected datagrams to filter them out
-        const selectedDatagrams = getSelectedDatagrams(projectXmlPath);
-        const selectedNames = selectedDatagrams.map(d => d.name);
-        
-        // Return only datagrams not already in the project
-        return xmlFiles.filter(name => !selectedNames.includes(name));
+    } else {
+        vscode.window.showErrorMessage('DATAGRAM_DIR_PATH environment variable is not defined.');
+    }
+
+    // 2. Local Datagrams (NEW_DATAGRAM_TARGET_NAME)
+    // projectXmlPath is usually .../adapters/common/${MW_NAME}/${PROJECT_NAME}.xml
+    // We want to look into .../adapters/common/${MW_NAME}/${NEW_DATAGRAM_TARGET_NAME}/
+    const newDatagramTarget = process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram';
+    const localDatagramDir = path.join(path.dirname(projectXmlPath), newDatagramTarget);
+
+    try {
+        if (fs.existsSync(localDatagramDir)) {
+            console.log('Using local datagram directory:', localDatagramDir);
+            const files = fs.readdirSync(localDatagramDir);
+            files
+                .filter(file => file.toLowerCase().endsWith('.xml'))
+                .forEach(file => localDatagrams.add(path.basename(file, '.xml')));
+        }
     } catch (error) {
-        vscode.window.showErrorMessage(`Error reading datagram directory: ${error}`);
+        console.error(`Error reading local datagram directory: ${error}`);
+    }
+
+    // Filter out already selected datagrams
+    try {
+        const selectedDatagrams = getSelectedDatagrams(projectXmlPath);
+        const selectedNames = new Set(selectedDatagrams.map(d => d.name));
+        
+        const result: Array<{name: string, isLocal: boolean}> = [];
+
+        // Add local ones first
+        localDatagrams.forEach(name => {
+            if (!selectedNames.has(name)) {
+                result.push({ name, isLocal: true });
+            }
+        });
+
+        // Add global ones
+        globalDatagrams.forEach(name => {
+            if (!selectedNames.has(name) && !localDatagrams.has(name)) {
+                result.push({ name, isLocal: false });
+            }
+        });
+
+        return result;
+    } catch (error) {
+        vscode.window.showErrorMessage(`Error filtering datagrams: ${error}`);
         return [];
     }
 }
@@ -699,7 +733,7 @@ async function saveAllDatagrams(projectXmlPath: string, datagrams: Array<{name: 
     }
 }
 
-function getDatagramWebviewContent(available: string[], selected: Array<{name: string, pub: boolean, sub: boolean}>): string {
+function getDatagramWebviewContent(available: Array<{name: string, isLocal: boolean}>, selected: Array<{name: string, pub: boolean, sub: boolean}>): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -866,7 +900,7 @@ function getDatagramWebviewContent(available: string[], selected: Array<{name: s
                 <div class="header-label">Datagram Name:</div>
             </div>
             <div class="list-container" id="availableList">
-                ${available.map(item => `<div class="list-item" data-name="${item}">${item}</div>`).join('')}
+                ${available.map(item => `<div class="list-item" data-name="${item.name}">${item.name} ${item.isLocal ? '<b>(L)</b>' : ''}</div>`).join('')}
             </div>
         </div>
         
@@ -922,13 +956,14 @@ function getDatagramWebviewContent(available: string[], selected: Array<{name: s
 
         // Available list handling
         document.getElementById('availableList').addEventListener('click', (e) => {
-            if (e.target.classList.contains('list-item')) {
+            const listItem = e.target.closest('.list-item');
+            if (listItem) {
                 document.querySelectorAll('#availableList .list-item').forEach(item => {
                     item.classList.remove('selected');
                 });
-                e.target.classList.add('selected');
-                selectedAvailable = e.target.dataset.name;
-                selectedItem = e.target;
+                listItem.classList.add('selected');
+                selectedAvailable = listItem.dataset.name;
+                selectedItem = listItem;
                 document.getElementById('moveRight').disabled = false;
                 document.getElementById('moveLeft').disabled = true;
             }
@@ -936,13 +971,14 @@ function getDatagramWebviewContent(available: string[], selected: Array<{name: s
 
         // Selected list handling
         document.getElementById('selectedList').addEventListener('click', (e) => {
-            if (e.target.classList.contains('list-item')) {
+            const listItem = e.target.closest('.list-item');
+            if (listItem) {
                 document.querySelectorAll('#selectedList .list-item').forEach(item => {
                     item.classList.remove('selected');
                 });
-                e.target.classList.add('selected');
-                selectedAvailable = e.target.dataset.name;
-                selectedItem = e.target;
+                listItem.classList.add('selected');
+                selectedAvailable = listItem.dataset.name;
+                selectedItem = listItem;
                 document.getElementById('moveLeft').disabled = false;
                 document.getElementById('moveRight').disabled = true;
             }
@@ -957,13 +993,18 @@ function getDatagramWebviewContent(available: string[], selected: Array<{name: s
                     pub: false,
                     sub: false
                 });
+                
+                // Check if it was local (has (L) bold tag)
+                const isLocal = selectedItem.innerHTML.includes('<b>(L)</b>');
+                const displayName = selectedAvailable + (isLocal ? ' <b>(L)</b>' : '');
+
                 // Create new item with checkboxes for selected list (both checked by default)
                 const newItem = document.createElement('div');
                 newItem.className = 'list-item';
                 newItem.dataset.name = selectedAvailable;
                 newItem.innerHTML = \`
                     <div class="list-item-row">
-                        <div class="item-name">\${selectedAvailable}</div>
+                        <div class="item-name">\${displayName}</div>
                         <div class="checkbox-col">
                             <input type="checkbox" data-type="pub" data-name="\${selectedAvailable}" checked onclick="event.stopPropagation(); handleCheckboxChange(this)">
                         </div>
@@ -991,7 +1032,8 @@ function getDatagramWebviewContent(available: string[], selected: Array<{name: s
                 const newItem = document.createElement('div');
                 newItem.className = 'list-item';
                 newItem.dataset.name = selectedAvailable;
-                newItem.textContent = selectedAvailable;
+                // Note: We lose the (L) info here when moving back, but that's acceptable for now or we could preserve it if needed
+                newItem.textContent = selectedAvailable; 
                 document.getElementById('availableList').appendChild(newItem);
                 selectedItem.remove();
                 selectedAvailable = null;
