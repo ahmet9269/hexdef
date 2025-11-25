@@ -157,6 +157,11 @@ export async function createNewDatagram(uri?: vscode.Uri) {
         // Çevresel değişkenler
         const mwName = process.env.MW_NAME || 'Kafka';
         const newDatagramTarget = process.env.NEW_DATAGRAM_TARGET_NAME || 'new_datagram';
+        const datagramDescription = process.env.DATAGRAM_DESCRIPTION || '';
+
+        // Template içindeki diğer değişkenleri de değiştir
+        datagramContent = datagramContent.replace(/\${NEW_DATAGRAM_TARGET_NAME}/g, newDatagramTarget);
+        datagramContent = datagramContent.replace(/\${DATAGRAM_DESCRIPTION}/g, datagramDescription);
         
         // adapters/common/${MW_NAME}/${NEW_DATAGRAM_TARGET_NAME} dizinlerini bul
         console.log(`🔍 Searching for pattern: **/adapters/common/${mwName}/${newDatagramTarget}`);
