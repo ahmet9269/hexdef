@@ -636,8 +636,13 @@ function getSelectedDatagrams(projectXmlPath: string): Array<{name: string, pub:
         const content = fs.readFileSync(projectXmlPath, 'utf-8');
         const datagrams: Array<{name: string, pub: boolean, sub: boolean}> = [];
         
+        const datagramTag = process.env.DATAGRAM || 'datagram';
+        
         // Parse XML to extract datagrams with type info
-        const datagramRegex = /<${DATAGRAM}s name="([^"]+)" role="([^"]+)"\/>/g;
+        // Create regex dynamically: <TAG name="..." role="..."/>
+        const regexPattern = `<${datagramTag}\\s+name="([^"]+)"\\s+role="([^"]+)"\\s*/>`;
+        const datagramRegex = new RegExp(regexPattern, 'g');
+        
         let match;
         
         while ((match = datagramRegex.exec(content)) !== null) {
@@ -653,6 +658,7 @@ function getSelectedDatagrams(projectXmlPath: string): Array<{name: string, pub:
         
         return datagrams;
     } catch (error) {
+        console.error('Error parsing selected datagrams:', error);
         return [];
     }
 }
