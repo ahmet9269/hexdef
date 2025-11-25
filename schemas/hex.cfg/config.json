@@ -7,5 +7,5 @@
     "DATAGRAM_SAVE_DIR": "adapters/common",
     "DATAGRAM": "datagram",
     "DATAGRAM_DESCRIPTION": "<!DOCTYPE datagram SYSTEM _description.dtd>",
-    "PROGRAM_DATAGRAM_DESCRIPTION": "xmlns:xslt=\"http://www.w3.org/1999/XSL/Transform xsi:noNamespaceSchemaLocation=\"datagram_description.xsd\"?>"
+    "PROGRAM_DATAGRAM_DESCRIPTION": "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"program_${NEW_DATAGRAM_TARGET_NAME}_definitions.xsd\""
 }

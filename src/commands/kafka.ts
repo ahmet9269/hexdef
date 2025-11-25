@@ -257,19 +257,23 @@ async function executeMake(uri: vscode.Uri | undefined, target: string = '') {
 
         console.log(`Running make ${target} in:`, projectRoot);
 
-        // ✅ Her zaman yeni terminal oluştur
-        const terminal = vscode.window.createTerminal({
-            name: `Make ${target} - ${projectName}`,
-            cwd: projectRoot // Bu dizinde başlat
-        });
+        // ✅ Aktif terminali kullan veya yeni oluştur
+        let terminal = vscode.window.activeTerminal;
+        if (!terminal) {
+            terminal = vscode.window.createTerminal({
+                name: `Make ${target} - ${projectName}`,
+                cwd: projectRoot
+            });
+        }
 
         terminal.show();
         
-        // ✅ Sadece make komutunu gönder (zaten doğru dizindeyiz)
-        const command = target ? `make ${target}` : 'make';
-        terminal.sendText(command);
+        // ✅ Doğru dizine git ve komutu çalıştır
+        const makeCommand = target ? `make ${target}` : 'make';
+        const fullCommand = `cd "${projectRoot}" && ${makeCommand}`;
+        terminal.sendText(fullCommand);
 
-        vscode.window.showInformationMessage(`Running ${command} in ${projectName}...`);
+        vscode.window.showInformationMessage(`Running ${makeCommand} in ${projectName}...`);
 
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to run make: ${error}`);
@@ -382,11 +386,14 @@ export async function regenerateCode(uri?: vscode.Uri) {
 
         console.log('Regenerating code in:', projectRoot);
 
-        // ✅ Her zaman yeni terminal oluştur
-        const terminal = vscode.window.createTerminal({
-            name: `Regenerate - ${projectName}`,
-            cwd: projectRoot // Kök dizinde başlat
-        });
+        // ✅ Aktif terminali kullan veya yeni oluştur
+        let terminal = vscode.window.activeTerminal;
+        if (!terminal) {
+            terminal = vscode.window.createTerminal({
+                name: `Regenerate - ${projectName}`,
+                cwd: projectRoot
+            });
+        }
 
         terminal.show();
         
@@ -706,7 +713,7 @@ async function saveAllDatagrams(projectXmlPath: string, datagrams: Array<{name: 
         // Create XML content
         let content = '<?xml version="1.0" encoding="UTF-8"?>\n';
   
-        content += `<program name="${projectName} "${programDatagramDescription}    >\n`;
+        content += `<program name="${projectName}" ${programDatagramDescription}>\n`;
         
         for (const datagram of datagrams) {
             const type = datagram.pub && datagram.sub ? 'pubsub' : 
