@@ -70,12 +70,12 @@ function findComponentDirectory(folderPath: string): { type: 'dark' | 'gray', di
     return null;
 }
 
-function generateProgramXml(selections: any[]): string {
+function generateProgramXml(selections: any[], projectName: string): string {
     const programDatagramDescription = process.env.PROGRAM_DATAGRAM_DESCRIPTION || '';
     const datagramTag = process.env.DATAGRAM || 'datagram';
     
     let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xmlContent += `<program ${programDatagramDescription}>\n`;
+    xmlContent += `<program name="${projectName}" ${programDatagramDescription}>\n`;
     
     for (const selection of selections) {
         const { name, publish, subscribe } = selection;
@@ -555,12 +555,12 @@ export async function addRemoveDatagrams(uri?: vscode.Uri) {
                         const savedPaths: string[] = [];
                         
                         if (xmlPaths.gray) {
-                            await saveAllDatagrams(xmlPaths.gray, message.datagrams);
+                            await saveAllDatagrams(xmlPaths.gray, message.datagrams, projectName);
                             savedPaths.push(xmlPaths.gray);
                         }
                         
                         if (xmlPaths.dark) {
-                            await saveAllDatagrams(xmlPaths.dark, message.datagrams);
+                            await saveAllDatagrams(xmlPaths.dark, message.datagrams, projectName);
                             savedPaths.push(xmlPaths.dark);
                         }
                         
@@ -652,10 +652,17 @@ function getSelectedDatagrams(projectXmlPath: string): Array<{name: string, pub:
     }
 }
 
-async function saveAllDatagrams(projectXmlPath: string, datagrams: Array<{name: string, pub: boolean, sub: boolean}>) {
+async function saveAllDatagrams(projectXmlPath: string, datagrams: Array<{name: string, pub: boolean, sub: boolean}>, projectName: string) {
     try {
+        const datagramTag = process.env.DATAGRAM || 'datagram';
+        const programDatagramDescription = process.env.DATAGRAM_DESCRIPTION || '';
+
         // Create XML content
-        let content = '<?xml version="1.0" encoding="UTF-8"?>\n<${DATAGRAM}s>\n';
+        let content = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        if (programDatagramDescription) {
+            content += `${programDatagramDescription}\n`;
+        }
+        content += `<program name="${projectName}">\n`;
         
         for (const datagram of datagrams) {
             const type = datagram.pub && datagram.sub ? 'pubsub' : 
@@ -663,11 +670,11 @@ async function saveAllDatagrams(projectXmlPath: string, datagrams: Array<{name: 
                         datagram.sub ? 'sub' : '';
             
             if (type) {
-                content += `  <datagram name="${datagram.name}" role="${type}"/>\n`;
+                content += `  <${datagramTag} name="${datagram.name}" role="${type}"/>\n`;
             }
         }
         
-        content += '</datagrams>';
+        content += `</program>`;
         
         // Ensure directory exists
         const dir = path.dirname(projectXmlPath);

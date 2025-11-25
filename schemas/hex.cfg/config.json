@@ -5,6 +5,7 @@
     "NEW_DATAGRAM_TARGET_NAME": "new_datagram",
     "MW_NAME": "kafkaa",
     "DATAGRAM_SAVE_DIR": "adapters/common",
-    "DATAGRAM": "datagram",
-    "DATAGRAM_DESCRIPTION": "!DOCTYPE datagram SYSTEM _description.dtd"
+    "DATAGRAM": "datagramxhh",
+    "DATAGRAM_DESCRIPTION": "<!DOCTYPE datagram SYSTEM _description.dtd>",
+    "PROGRAM_DESCRIPTION": "!DOCTYPE datagram SYSTEM _description.dtd"
 }
